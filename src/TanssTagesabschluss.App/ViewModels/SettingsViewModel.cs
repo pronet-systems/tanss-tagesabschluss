@@ -329,9 +329,17 @@ public sealed partial class SettingsViewModel : ObservableObject
 
             ConnectionCheck check = new(client!, EmployeeId, VerifyTls, Resolver(), FederalState);
 
-            foreach (CheckRow row in await check.RunAsync().ConfigureAwait(true))
+            // Jede Zeile erscheint, sobald sie feststeht, statt alle zehn am Ende. Der Grund
+            // ist gemessen: timestamps/statistics braucht rund dreizehn Sekunden, und wer so
+            // lange auf eine leere Karte sieht, haelt die Schaltflaeche fuer kaputt. Genau so
+            // ist es gemeldet worden.
+            await foreach (CheckRow row in check.RunAsync().ConfigureAwait(true))
             {
                 Checks.Add(row);
+                OnPropertyChanged(nameof(HasChecks));
+
+                ConnectionStatus = string.Create(CultureInfo.CurrentCulture,
+                    $"Prüft … {Checks.Count} von {ConnectionCheck.Count} erledigt.");
             }
 
             int failed = Checks.Count(row => row.IsFail);

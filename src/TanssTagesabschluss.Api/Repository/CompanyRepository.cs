@@ -427,14 +427,16 @@ public sealed class CompanyRepository : ICompanyRepository
 
         if (assigned is not null && assigned.Id == state.OwnCompanyId)
         {
+            // Distinguisher traegt Kundennummer, Postleitzahl und Ort bereits. Sie daneben ein
+            // zweites Mal anzuhaengen ergab "ProNet Systems GmbH (100000 - 59757 Arnsberg),
+            // 59757 Arnsberg" - und wer das liest, sucht den Unterschied zwischen beiden.
             return string.IsNullOrWhiteSpace(assigned.PostCode)
                 ? new OwnCompanyResult(assigned, OwnCompanyOutcome.FoundWithoutAddress,
                     $"Eigene Firma: {assigned.Name} ({assigned.Distinguisher}). TANSS führt zu "
                     + "ihr keine Postleitzahl, deshalb ist das Bundesland in den Einstellungen "
                     + "von Hand zu setzen.")
                 : new OwnCompanyResult(assigned, OwnCompanyOutcome.Found,
-                    $"Eigene Firma: {assigned.Name} ({assigned.Distinguisher}), "
-                    + $"{assigned.PostCode} {assigned.City}".TrimEnd());
+                    $"Eigene Firma: {assigned.Name} ({assigned.Distinguisher}).");
         }
 
         // Die Kennung steht, die Anschrift nicht. Mehr ist von hier aus nicht zu holen: Eine

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace TanssTagesabschluss.Api.Model;
@@ -200,6 +201,107 @@ public enum AbsenceCoverage
 
     /// <summary>Eine ausdrückliche Uhrzeitspanne.</summary>
     TimeSpan,
+}
+
+/// <summary>
+/// Die Antwort von <c>PUT /api/v1/vacationRequests/list</c>.
+/// </summary>
+/// <remarks>
+/// <para><b>Die Beschreibung und die Instanz sind sich hier nicht einig, und das ist kein
+/// Schönheitsfehler gewesen.</b> <c>api-doc-10.10.0.yaml</c> sagt zu dieser Route
+/// <c>content: type: array</c> — eine blanke Liste von Anträgen. Nachgemessen am 14.09.2026
+/// gegen 10.10.0 kommt statt dessen ein Objekt:</para>
+/// <code>
+/// "content": {
+///   "vacationRequests": [ … ],
+///   "employeeSummaries": { "1": { "employeeId": 1, "vacationDaysForYear": { … } } }
+/// }
+/// </code>
+/// <para>Gegen <c>List&lt;AbsenceRequest&gt;</c> gelesen ergab das keinen leeren Urlaub,
+/// sondern einen Lesefehler — und der ist die freundlichere der beiden Möglichkeiten. Wäre er
+/// irgendwo verschluckt worden, hätte das Werkzeug jeden Urlaubstag als Lücke gemeldet, und
+/// jemand hätte Leistungen für Tage gesucht, an denen er am Strand lag.</para>
+/// <para><b>Gelesen werden deshalb beide Formen</b> — die beschriebene und die gemessene. Auf
+/// welcher Fassung die Instanz des Kunden steht, entscheidet nicht dieses Werkzeug.</para>
+/// </remarks>
+[JsonConverter(typeof(AbsenceListConverter))]
+public sealed record AbsenceList
+{
+    /// <summary>Die Anträge; niemals <see langword="null"/>.</summary>
+    public IReadOnlyList<AbsenceRequest> Requests { get; init; } = [];
+}
+
+/// <summary>
+/// Liest die Antwort der Abwesenheitsliste in ihren beiden bekannten Formen.
+/// </summary>
+/// <remarks>
+/// <b>Was nicht zu erkennen ist, wird geworfen und nicht übergangen.</b> Anders als bei
+/// <see cref="PeriodMapConverter"/>, wo ein unlesbarer Eintrag eine Art kostet: Hier ginge
+/// stillschweigend der ganze Urlaub verloren, und das Ergebnis wäre eine Mahnung an einem
+/// Urlaubstag. Eine Ausnahme führt statt dessen zu einer Zeile in der Verbindungsprüfung, die
+/// sagt, was ankam.
+/// </remarks>
+public sealed class AbsenceListConverter : JsonConverter<AbsenceList>
+{
+    /// <summary>Der Name des Feldes, unter dem die gemessene Fassung die Anträge führt.</summary>
+    private const string Field = "vacationRequests";
+
+    /// <inheritdoc />
+    public override AbsenceList Read(ref Utf8JsonReader reader, Type typeToConvert,
+                                     JsonSerializerOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+
+        // Die beschriebene Fassung: eine blanke Liste.
+        if (reader.TokenType == JsonTokenType.StartArray)
+        {
+            return new AbsenceList
+            {
+                Requests = JsonSerializer.Deserialize<List<AbsenceRequest>>(ref reader, options) ?? [],
+            };
+        }
+
+        if (reader.TokenType == JsonTokenType.Null)
+        {
+            return new AbsenceList();
+        }
+
+        if (reader.TokenType != JsonTokenType.StartObject)
+        {
+            throw new JsonException(
+                "Die Abwesenheitsliste kam weder als Feld noch als Objekt an, sondern als "
+                + $"{reader.TokenType}. Damit lässt sich nicht entscheiden, ob jemand Urlaub "
+                + "hatte — und ein geratener Urlaub wäre schlimmer als gar keine Antwort.");
+        }
+
+        // Die gemessene Fassung: ein Objekt, in dem die Antraege unter "vacationRequests"
+        // stehen. Daneben liegt "employeeSummaries" mit Jahresurlaubskonten; die liest dieses
+        // Werkzeug nicht, weil es sie nicht auswertet.
+        using JsonDocument document = JsonDocument.ParseValue(ref reader);
+
+        if (!document.RootElement.TryGetProperty(Field, out JsonElement list))
+        {
+            throw new JsonException(
+                $"Die Abwesenheitsliste kam als Objekt ohne das Feld „{Field}“ an. Gemessen "
+                + "gegen 10.10.0 steht dort die Liste der Anträge; ohne sie ist unbekannt, ob "
+                + "jemand Urlaub hatte.");
+        }
+
+        return new AbsenceList
+        {
+            Requests = list.Deserialize<List<AbsenceRequest>>(options) ?? [],
+        };
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// Dieses Werkzeug schreibt keine Abwesenheiten — es liest sie nur, um eine Lücke zu
+    /// erklären. Ein Schreibweg hier wäre eine Einladung, das später zu ändern.
+    /// </remarks>
+    public override void Write(Utf8JsonWriter writer, AbsenceList value,
+                               JsonSerializerOptions options) =>
+        throw new NotSupportedException(
+            "Abwesenheiten werden von diesem Werkzeug ausschliesslich gelesen.");
 }
 
 /// <summary>Der Filterrumpf von <c>PUT /api/v1/vacationRequests/list</c>.</summary>

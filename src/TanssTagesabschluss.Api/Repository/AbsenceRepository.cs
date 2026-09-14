@@ -41,11 +41,15 @@ public sealed class AbsenceRepository : IAbsenceRepository
             EmployeeIds = [employeeId],
         };
 
-        List<AbsenceRequest>? requests = await _client
-            .PutAsync<List<AbsenceRequest>>(TanssRoutes.VacationRequestList, query, ct: ct)
+        // Gelesen wird ueber AbsenceList und nicht unmittelbar als Liste: Die Beschreibung zu
+        // 10.10.0 sagt "array", die Instanz antwortet mit einem Objekt, in dem die Antraege
+        // unter "vacationRequests" stehen. Nachgemessen am 14.09.2026 -- siehe
+        // AbsenceListConverter, der beide Formen nimmt.
+        AbsenceList? list = await _client
+            .PutAsync<AbsenceList>(TanssRoutes.VacationRequestList, query, ct: ct)
             .ConfigureAwait(false);
 
-        return requests ?? [];
+        return list?.Requests ?? [];
     }
 
     /// <inheritdoc />

@@ -10,6 +10,22 @@ folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Behoben
 
+- **„Verbindung prüfen" schien nichts zu tun.** Sie tat etwas — nur eine halbe Minute lang
+  unsichtbar. Zwei Ursachen: Die Route `timestamps/statistics` braucht auf unserer Instanz rund
+  **13 Sekunden**, und zwar unabhängig vom angefragten Zeitraum (nachgemessen mit 1, 2, 7 und 30
+  Tagen). Und sie wurde **zweimal** gefragt — einmal für die Zeile „Zeiterfassung", einmal für
+  „Arbeitszeitmodell", obwohl beide aus derselben Antwort kommen. Jetzt wird einmal gelesen, und
+  jede Zeile erscheint, sobald sie feststeht; daneben steht „Prüft … 3 von 10 erledigt".
+- **Urlaub und Krankheit liessen sich nicht lesen.** `PUT /api/v1/vacationRequests/list`
+  antwortet nicht mit der beschriebenen Liste, sondern mit einem Objekt, in dem die Anträge
+  unter `vacationRequests` stehen. Gelesen werden jetzt beide Formen. Der Fehler war laut und
+  damit die freundlichere Möglichkeit — verschluckt hätte er jeden Urlaubstag zu einer
+  gemeldeten Lücke gemacht.
+- **Die Zeile zum Arbeitszeitmodell unterscheidet zwei Fälle.** „Kein Modell" heisst entweder,
+  dass TANSS den Wochenplan nicht mitliefert, oder dass dem Mitarbeiter gar keines zugeordnet
+  ist. Das verlangt verschiedene Schritte, und beides gleich zu melden schickte jemanden in die
+  falsche Richtung.
+
 - **Die eigene Firma wird jetzt gefunden.** Bisher lief die Erkennung über
   `GET /api/erp/v1/companies/employees`; auf unserer Instanz antwortet dieser Weg mit 403, und
   „Ermitteln“ blieb ohne Ergebnis. Den Vortritt hat nun
