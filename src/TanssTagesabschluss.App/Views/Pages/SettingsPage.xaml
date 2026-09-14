@@ -359,46 +359,33 @@
                     </StackPanel>
 
                     <!-- ===== Arbeitswoche ============================================= -->
-                    <!-- Sie steht hier und nicht in TANSS, weil TANSS sie nicht hergibt: Zu
-                         einem Arbeitszeitmodell liefert die Schnittstelle Kennung und Namen,
-                         aber keinen Wochenplan — nachgemessen gegen 10.10.0. -->
+                    <!-- Pflichtangabe, und zwar weil TANSS sie nicht hergibt: Zu einem
+                         Arbeitszeitmodell liefert die Schnittstelle Kennung und Namen, aber
+                         keinen Wochenplan - nachgemessen gegen 10.10.0. Ohne diese Angabe
+                         waere jeder leere Samstag eine gemeldete Luecke und jeder verspaetete
+                         Stempel unsichtbar. -->
                     <StackPanel design:Spacing.Size="8">
                         <ui:TextBlock Text="Arbeitswoche" FontTypography="BodyStrong" />
                         <ui:TextBlock FontSize="12" TextWrapping="Wrap"
                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                      Text="TANSS nennt zu einem Arbeitszeitmodell nur dessen Namen, keinen Wochenplan — und vielen Mitarbeitern ist gar keines zugeordnet. Ohne diese Angabe muss das Werkzeug raten, welcher Tag ein Arbeitstag war." />
+                                      Text="Pflichtangabe. TANSS gibt den Wochenplan eines Mitarbeiters nicht heraus &#8212; weder &#252;ber das Arbeitszeitmodell noch &#252;ber eine eigene Route. Ohne sie l&#228;sst sich kein Tag einordnen." />
 
-                        <CheckBox Content="Arbeitswoche hier festlegen"
-                                  IsChecked="{Binding WorkWeekIsSet, Mode=TwoWay}"
-                                  ToolTip="Abgeschaltet gilt Montag bis Freitag als Annahme, und jeder Tag sagt das auch." />
-
-                        <WrapPanel IsEnabled="{Binding WorkWeekIsSet}">
+                        <WrapPanel>
                             <CheckBox Content="Mo" IsChecked="{Binding WorksMonday, Mode=TwoWay}" Margin="0,0,12,0" />
                             <CheckBox Content="Di" IsChecked="{Binding WorksTuesday, Mode=TwoWay}" Margin="0,0,12,0" />
                             <CheckBox Content="Mi" IsChecked="{Binding WorksWednesday, Mode=TwoWay}" Margin="0,0,12,0" />
                             <CheckBox Content="Do" IsChecked="{Binding WorksThursday, Mode=TwoWay}" Margin="0,0,12,0" />
                             <CheckBox Content="Fr" IsChecked="{Binding WorksFriday, Mode=TwoWay}" Margin="0,0,12,0" />
                             <CheckBox Content="Sa" IsChecked="{Binding WorksSaturday, Mode=TwoWay}" Margin="0,0,12,0" />
-                            <CheckBox Content="So" IsChecked="{Binding WorksSunday, Mode=TwoWay}" />
-                        </WrapPanel>
+                            <CheckBox Content="So" IsChecked="{Binding WorksSunday, Mode=TwoWay}" Margin="0,0,24,0" />
 
-                        <!-- Getrennt vom Wochentag, weil es zwei verschiedene Aussagen
-                             sind: „Ich arbeite Mo–Fr“ lässt sich sicher sagen, „ich bin immer
-                             um 8:00 da“ nicht von jedem. -->
-                        <CheckBox Content="Übliche Arbeitszeit auswerten"
-                                  IsChecked="{Binding WorkHoursAreSet, Mode=TwoWay}"
-                                  IsEnabled="{Binding WorkWeekIsSet}"
-                                  ToolTip="Ohne diese Angabe werden nur Lücken innerhalb der gestempelten Anwesenheit gefunden — ein zu spätes Einstempeln bleibt unbemerkt." />
-
-                        <StackPanel Orientation="Horizontal" design:Spacing.Size="12"
-                                    IsEnabled="{Binding CanEditWorkHours}">
-                            <ui:TextBlock Text="von" VerticalAlignment="Center" FontSize="12" />
+                            <ui:TextBlock Text="von" VerticalAlignment="Center" FontSize="12" Margin="0,0,8,0" />
                             <ui:TextBox Text="{Binding WorkBegin, UpdateSourceTrigger=PropertyChanged}"
-                                        MinWidth="80" PlaceholderText="08:00" />
-                            <ui:TextBlock Text="bis" VerticalAlignment="Center" FontSize="12" />
+                                        MinWidth="80" Margin="0,0,8,0" PlaceholderText="08:00" />
+                            <ui:TextBlock Text="bis" VerticalAlignment="Center" FontSize="12" Margin="0,0,8,0" />
                             <ui:TextBox Text="{Binding WorkEnd, UpdateSourceTrigger=PropertyChanged}"
                                         MinWidth="80" PlaceholderText="17:00" />
-                        </StackPanel>
+                        </WrapPanel>
 
                         <ui:TextBlock Text="{Binding WorkWeekText}" FontSize="12" TextWrapping="Wrap"
                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />

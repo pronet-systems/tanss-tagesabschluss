@@ -16,6 +16,7 @@ using TanssTagesabschluss.App.Services;
 using TanssTagesabschluss.Storage;
 using TanssTagesabschluss.Storage.Config;
 using TanssTagesabschluss.Storage.Secrets;
+using TanssTagesabschluss.Workday;
 using TanssTagesabschluss.Workday.Holidays;
 
 namespace TanssTagesabschluss.App.ViewModels;
@@ -123,17 +124,13 @@ public sealed partial class SettingsViewModel : ObservableObject
     private int _historyDays = 14;
 
     /// <summary>
-    /// Ist die Arbeitswoche von Hand festgelegt?
+    /// Die Arbeitstage. <b>Pflichtangabe.</b>
     /// </summary>
     /// <remarks>
-    /// <b>Ein eigener Schalter und nicht bloss sieben Häkchen.</b> Ohne ihn liesse sich „nicht
-    /// gesetzt“ nicht von „Montag bis Freitag gesetzt“ unterscheiden — beides ergäbe dieselben
-    /// fünf Häkchen. Der Unterschied zählt aber: Im einen Fall steht am Tag ein Hinweis, dass
-    /// die Einstufung geraten ist, im anderen nicht.
+    /// TANSS gibt den Wochenplan eines Mitarbeiters nicht heraus — nachgemessen gegen 10.10.0.
+    /// Ohne diese Angabe wäre jeder leere Samstag eine gemeldete Lücke und jeder verspätete
+    /// Stempel unsichtbar; deshalb lädt die Konfiguration ohne sie gar nicht.
     /// </remarks>
-    [ObservableProperty]
-    private bool _workWeekIsSet;
-
     [ObservableProperty]
     private bool _worksMonday = true;
 
@@ -163,18 +160,6 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private string _workEnd = "17:00";
 
-    /// <summary>
-    /// Sollen die Arbeitszeiten ausgewertet werden?
-    /// </summary>
-    /// <remarks>
-    /// <b>Getrennt von den Arbeitstagen, weil es zwei verschiedene Aussagen sind.</b> „Ich
-    /// arbeite Mo–Fr“ lässt sich sicher sagen; „ich bin immer um 8:00 da“ nicht jeder. Wer nur
-    /// das Erste setzt, bekommt die Einstufung der Tage ohne Hinweis — aber keine Mahnung, weil
-    /// er um 9:12 eingestempelt hat.
-    /// </remarks>
-    [ObservableProperty]
-    private bool _workHoursAreSet;
-
     [ObservableProperty]
     private bool _verifyTls = true;
 
@@ -201,35 +186,33 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>
     /// Was die Arbeitswoche für die Tagesansicht bedeutet — ein Satz, der beides sagt.
     /// </summary>
-    /// <summary>Lassen sich die Arbeitszeiten gerade bearbeiten?</summary>
+    /// <summary>Was die Arbeitswoche für die Tagesansicht bedeutet.</summary>
+    public string WorkWeekText =>
+        $"Erwartet wird {Describe()}, {WorkBegin} bis {WorkEnd}. Wer später einstempelt, bekommt "
+        + "die Zeit davor als offenes Zeitfenster — sonst fiele sie durch jedes Raster, denn "
+        + "ohne Stempel gibt es auch keine Lücke. An den übrigen Tagen wird nichts gemeldet.";
+
+    /// <summary>Die Arbeitswoche aus der Eingabemaske — für die Verbindungsprüfung.</summary>
     /// <remarks>
-    /// Eine berechnete Eigenschaft statt eines Umsetzers für mehrere Bindungen: Die Frage ist
-    /// eine des Ansichtsmodells und keine der Darstellung.
+    /// Aus den Feldern und nicht aus der gespeicherten Konfiguration: Wer etwas ändert und
+    /// gleich prüft, will den Befund zu dem sehen, was auf dem Bildschirm steht.
     /// </remarks>
-    public bool CanEditWorkHours => WorkWeekIsSet && WorkHoursAreSet;
-
-    public string WorkWeekText
+    private WorkWeek WorkWeekFromInput()
     {
-        get
+        List<DayOfWeek> days = [];
+
+        foreach (string name in SelectedWorkDays())
         {
-            if (!WorkWeekIsSet)
+            if (Enum.TryParse(name, ignoreCase: true, out DayOfWeek day))
             {
-                return "Nicht gesetzt. Solange TANSS keinen Wochenplan liefert, gilt Montag bis "
-                    + "Freitag als angenommen — und jeder Tag trägt einen Hinweis, dass die "
-                    + "Einstufung nicht belegt ist.";
+                days.Add(day);
             }
-
-            string days = "Gesetzt: " + Describe() + ". An anderen Tagen erscheint kein Hinweis "
-                + "auf fehlende Leistungen.";
-
-            return WorkHoursAreSet
-                ? days + $" Erwartet wird {WorkBegin} bis {WorkEnd}: Wer später einstempelt, "
-                  + "bekommt die Zeit davor als offenes Zeitfenster — sonst fiele sie durch "
-                  + "jedes Raster, denn ohne Stempel gibt es auch keine Lücke."
-                : days + " Ohne Arbeitszeiten werden nur Lücken innerhalb der gestempelten "
-                  + "Anwesenheit gefunden. Wer um 11:08 einstempelt, obwohl er um 8:00 da war, "
-                  + "bleibt damit unbemerkt.";
         }
+
+        return TimeOnly.TryParse(WorkBegin, CultureInfo.InvariantCulture, out TimeOnly begin)
+               && TimeOnly.TryParse(WorkEnd, CultureInfo.InvariantCulture, out TimeOnly end)
+            ? WorkWeek.Of(days, begin, end)
+            : WorkWeek.Default;
     }
 
     /// <summary>Die gewählten Arbeitstage in der Form, die die Konfiguration führt.</summary>
@@ -239,11 +222,6 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// </remarks>
     private List<string> SelectedWorkDays()
     {
-        if (!WorkWeekIsSet)
-        {
-            return [];
-        }
-
         List<string> days = [];
 
         if (WorksMonday) { days.Add(nameof(DayOfWeek.Monday)); }
@@ -258,11 +236,13 @@ public sealed partial class SettingsViewModel : ObservableObject
     }
 
     /// <summary>Übernimmt die Arbeitstage aus der Konfiguration in die Häkchen.</summary>
+    /// <remarks>
+    /// Eine leere Liste heisst „noch nie gespeichert“ — dann bleibt die Vorbelegung Montag bis
+    /// Freitag stehen, statt sieben leere Kästchen zu zeigen.
+    /// </remarks>
     private void ApplyWorkDays(IReadOnlyList<string> days)
     {
-        WorkWeekIsSet = days.Count > 0;
-
-        if (!WorkWeekIsSet)
+        if (days.Count == 0)
         {
             return;
         }
@@ -293,18 +273,6 @@ public sealed partial class SettingsViewModel : ObservableObject
         if (WorksSunday) { parts.Add("So"); }
 
         return parts.Count == 0 ? "kein Tag gewählt" : string.Join(", ", parts);
-    }
-
-    partial void OnWorkWeekIsSetChanged(bool value)
-    {
-        OnPropertyChanged(nameof(WorkWeekText));
-        OnPropertyChanged(nameof(CanEditWorkHours));
-    }
-
-    partial void OnWorkHoursAreSetChanged(bool value)
-    {
-        OnPropertyChanged(nameof(WorkWeekText));
-        OnPropertyChanged(nameof(CanEditWorkHours));
     }
 
     partial void OnWorkBeginChanged(string value) => OnPropertyChanged(nameof(WorkWeekText));
@@ -507,7 +475,8 @@ public sealed partial class SettingsViewModel : ObservableObject
                 return;
             }
 
-            ConnectionCheck check = new(client!, EmployeeId, VerifyTls, Resolver(), FederalState);
+            ConnectionCheck check = new(client!, EmployeeId, VerifyTls, Resolver(), FederalState,
+                                        WorkWeekFromInput());
 
             // Jede Zeile erscheint, sobald sie feststeht, statt alle zehn am Ende. Der Grund
             // ist gemessen: timestamps/statistics braucht rund dreizehn Sekunden, und wer so
@@ -718,8 +687,8 @@ public sealed partial class SettingsViewModel : ObservableObject
                 MinimumMinutes = MinimumMinutes,
                 HistoryDays = HistoryDays,
                 WorkDays = SelectedWorkDays(),
-                WorkBegin = WorkWeekIsSet && WorkHoursAreSet ? WorkBegin.Trim() : string.Empty,
-                WorkEnd = WorkWeekIsSet && WorkHoursAreSet ? WorkEnd.Trim() : string.Empty,
+                WorkBegin = WorkBegin.Trim(),
+                WorkEnd = WorkEnd.Trim(),
             },
             Reminder = new ReminderSection
             {
@@ -1005,12 +974,15 @@ public sealed partial class SettingsViewModel : ObservableObject
         HistoryDays = config.Gaps.HistoryDays;
         ApplyWorkDays(config.Gaps.WorkDays);
 
-        WorkHoursAreSet = !string.IsNullOrWhiteSpace(config.Gaps.WorkBegin)
-            && !string.IsNullOrWhiteSpace(config.Gaps.WorkEnd);
-
-        if (WorkHoursAreSet)
+        // Leer heisst "noch nie gespeichert" -- dann bleibt die Vorbelegung stehen, damit die
+        // Maske nicht leer dasteht und die Pflichtangabe mit einem Klick erledigt ist.
+        if (!string.IsNullOrWhiteSpace(config.Gaps.WorkBegin))
         {
             WorkBegin = config.Gaps.WorkBegin;
+        }
+
+        if (!string.IsNullOrWhiteSpace(config.Gaps.WorkEnd))
+        {
             WorkEnd = config.Gaps.WorkEnd;
         }
 

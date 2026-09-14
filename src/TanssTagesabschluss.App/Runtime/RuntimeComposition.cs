@@ -148,25 +148,23 @@ public sealed class RuntimeComposition : IDisposable
     {
         MinimumGap = TimeSpan.FromMinutes(Config.Gaps.MinimumMinutes),
         ConditionalHolidayCountsAsDayOff = Config.Gaps.ConditionalHolidayIsDayOff,
-        WorkWeek = ReadWorkWeek(Config.Gaps.WorkDays, Config.Gaps.WorkBegin,
-                                Config.Gaps.WorkEnd),
+        WorkWeek = ReadWorkWeek(Config.Gaps),
     };
 
     /// <summary>
     /// Liest die Arbeitswoche aus der Konfiguration.
     /// </summary>
     /// <remarks>
-    /// <b>Ein unbekannter Name wird übergangen und bringt die Einrichtung nicht zu Fall.</b>
-    /// Die Prüfung beim Laden weist ihn bereits ab; dies ist der zweite Riegel, und an dieser
-    /// Stelle wäre eine Ausnahme das falsche Mittel — sie kostete die ganze Tagesansicht für
-    /// einen Tippfehler in einer Verfeinerung. Bleibt nichts Erkennbares übrig, gilt wieder die
-    /// Annahme, und der Tag sagt das auch.
+    /// <b>Zweiter Riegel.</b> Die Prüfung beim Laden verlangt Tage und Uhrzeiten und lässt eine
+    /// Konfiguration ohne sie gar nicht durch. Bleibt hier trotzdem nichts Erkennbares übrig,
+    /// gilt <see cref="WorkWeek.Default"/> — eine Ausnahme an dieser Stelle kostete die ganze
+    /// Tagesansicht für einen Tippfehler, den die Einstellungen längst beanstandet haben.
     /// </remarks>
-    private static WorkWeek ReadWorkWeek(IReadOnlyList<string> names, string begin, string end)
+    private static WorkWeek ReadWorkWeek(GapSection gaps)
     {
         List<DayOfWeek> days = [];
 
-        foreach (string name in names)
+        foreach (string name in gaps.WorkDays)
         {
             if (Enum.TryParse(name, ignoreCase: true, out DayOfWeek day))
             {
@@ -174,21 +172,10 @@ public sealed class RuntimeComposition : IDisposable
             }
         }
 
-        if (days.Count == 0)
-        {
-            return WorkWeek.Assumed;
-        }
-
-        // Beides oder nichts -- ein halber Rahmen ergaebe eine Luecke bis Mitternacht. Die
-        // Pruefung beim Laden faengt das ab; dies ist der zweite Riegel.
-        if (!TimeOnly.TryParse(begin, CultureInfo.InvariantCulture, out TimeOnly from)
-            || !TimeOnly.TryParse(end, CultureInfo.InvariantCulture, out TimeOnly until)
-            || until <= from)
-        {
-            return WorkWeek.Stated(days);
-        }
-
-        return WorkWeek.Stated(days, from, until);
+        return TimeOnly.TryParse(gaps.WorkBegin, CultureInfo.InvariantCulture, out TimeOnly begin)
+               && TimeOnly.TryParse(gaps.WorkEnd, CultureInfo.InvariantCulture, out TimeOnly end)
+            ? WorkWeek.Of(days, begin, end)
+            : WorkWeek.Default;
     }
 
     /// <summary>

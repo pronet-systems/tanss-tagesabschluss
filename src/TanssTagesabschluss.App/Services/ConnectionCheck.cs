@@ -11,6 +11,7 @@ using TanssTagesabschluss.Api.Http;
 using TanssTagesabschluss.Api.Model;
 using TanssTagesabschluss.Api.Repository;
 using TanssTagesabschluss.App.ViewModels;
+using TanssTagesabschluss.Workday;
 using TanssTagesabschluss.Workday.Holidays;
 
 namespace TanssTagesabschluss.App.Services;
@@ -43,6 +44,7 @@ public sealed class ConnectionCheck
     private readonly bool _verifyTls;
     private readonly IFederalStateResolver? _states;
     private readonly FederalState? _state;
+    private readonly WorkWeek _week;
 
     /// <summary>Baut die Prüfung.</summary>
     /// <param name="client">Der Zugang zu TANSS.</param>
@@ -50,8 +52,10 @@ public sealed class ConnectionCheck
     /// <param name="verifyTls">Ist die Zertifikatsprüfung eingeschaltet?</param>
     /// <param name="states">Die Postleitzahlenauskunft; <see langword="null"/>, wenn keine vorliegt.</param>
     /// <param name="state">Das eingestellte Bundesland; <see langword="null"/>, wenn keines feststeht.</param>
+    /// <param name="week">Die eingestellte Arbeitswoche.</param>
     public ConnectionCheck(TanssClient client, int employeeId, bool verifyTls,
-                           IFederalStateResolver? states = null, FederalState? state = null)
+                           IFederalStateResolver? states = null, FederalState? state = null,
+                           WorkWeek? week = null)
     {
         ArgumentNullException.ThrowIfNull(client);
 
@@ -60,6 +64,7 @@ public sealed class ConnectionCheck
         _verifyTls = verifyTls;
         _states = states;
         _state = state;
+        _week = week ?? WorkWeek.Default;
     }
 
     /// <summary>
@@ -108,14 +113,14 @@ public sealed class ConnectionCheck
         //    hier "nicht geprueft" und nicht "traegt".
         yield return TokenRow(reachable);
 
-        // 3. und 4. Die Zeiterfassung samt ihrem meta-Block. EIN Aufruf fuer beide Zeilen:
-        //    Die Arbeitszeitmodelle stehen im meta derselben Antwort, und die Route kostet
-        //    dreizehn Sekunden.
-        (CheckRow recordingRow, CheckRow modelRow) =
-            await RecordingRowsAsync(reachable, today, ct).ConfigureAwait(false);
+        // 3. Die Zeiterfassung. Die tragende Route dieses Werkzeugs: Ohne sie gibt es keine
+        //    Anwesenheit und damit ueberhaupt keine Aussage. Sie kostet dreizehn Sekunden.
+        yield return await RecordingRowAsync(reachable, today, ct).ConfigureAwait(false);
 
-        yield return recordingRow;
-        yield return modelRow;
+        // 4. Die Arbeitswoche. Keine Messung, sondern eine Einstellung -- aber eine, ohne die
+        //    kein Tag einzuordnen ist. TANSS gibt den Wochenplan nicht heraus, deshalb steht
+        //    hier, was jemand eingetragen hat.
+        yield return WorkWeekRow();
 
         // 5. Die Leistungen. Ohne sie waere jeder Tag eine einzige Luecke.
         yield return await ProbeRowAsync(
@@ -233,46 +238,34 @@ public sealed class ConnectionCheck
         }
     }
 
-    /// <summary>
-    /// Die Zeiterfassung und ihr <c>meta</c>-Block — zwei Befunde aus <b>einem</b> Aufruf.
-    /// </summary>
+    /// <summary>Der Befund zur Zeiterfassung — der tragenden Route dieses Werkzeugs.</summary>
     /// <remarks>
-    /// <para><b>Warum zusammen.</b> Die Arbeitszeitmodelle stehen im <c>meta</c>-Block der
-    /// Zeitauswertung. Sie getrennt zu holen hiess, dieselbe dreizehn Sekunden teure Route
-    /// zweimal zu fragen — für eine Antwort, die beide Zeilen brauchen.</para>
-    ///
-    /// <para><b>Warum die zweite Zeile zwischen zwei Fällen unterscheidet.</b> „Kein Modell
-    /// gefunden“ ist zweierlei, und die beiden verlangen verschiedene Schritte: Nennen die Tage
-    /// eine Modellkennung, liefert TANSS aber deren Wochenplan nicht, dann fehlt etwas im
-    /// Umschlag. Steht auf jedem Tag die Kennung <c>0</c>, ist dem Mitarbeiter schlicht kein
-    /// Modell zugeordnet — das ist eine Einstellung in TANSS und kein Fehler dieses Werkzeugs.
-    /// Wer beides gleich meldet, schickt jemanden in die falsche Richtung.</para>
-    ///
-    /// <para><b>Nachgemessen am 14.09.2026:</b> Die Instanz liefert <c>meta.properties.extras</c>
-    /// und <c>meta.linkedEntities.employeeWorkingTimeModels</c>, aber <b>kein</b>
-    /// <c>meta.listProperties</c> — jenen Ort also, den <c>api-doc-10.10.0.yaml</c> für die
-    /// Modelle nennt. <c>employeeWorkingTimeModels</c> ist nach dem ausgelieferten Archiv eine
-    /// Abbildung Kennung → Name (siehe <c>TnsLinkedEntityWorkingTimeModelEmployeeLoadStrategy</c>)
-    /// und trägt den Wochenplan gerade nicht. Gelesen wird deshalb weiter der beschriebene Ort;
-    /// hier steht nur, was tatsächlich ankam.</para>
+    /// <b>Die Dauer steht ausdrücklich in der Zeile.</b> Nachgemessen am 14.09.2026 braucht
+    /// <c>timestamps/statistics</c> rund dreizehn Sekunden, unabhängig vom angefragten
+    /// Zeitraum. Wer das nicht weiss, hält die Tagesansicht für kaputt.
     /// </remarks>
-    private async Task<(CheckRow Recording, CheckRow Model)> RecordingRowsAsync(
-        bool reachable, DateOnly today, CancellationToken ct)
+    private async Task<CheckRow> RecordingRowAsync(bool reachable, DateOnly today,
+                                                   CancellationToken ct)
     {
         if (!reachable)
         {
-            return (new CheckRow("Zeiterfassung lesbar", CheckLevel.Unknown, NotProbed),
-                    new CheckRow("Arbeitszeitmodell", CheckLevel.Unknown, NotProbed));
+            return new CheckRow("Zeiterfassung lesbar", CheckLevel.Unknown, NotProbed);
         }
 
         string route = "GET " + TanssRoutes.TimestampStatistics;
         long started = Stopwatch.GetTimestamp();
 
-        TimeRecording recording;
         try
         {
-            recording = await new TimestampRepository(_client)
+            TimeRecording recording = await new TimestampRepository(_client)
                 .ReadAsync(_employeeId, today.AddDays(-7), today, ct).ConfigureAwait(false);
+
+            TimeSpan took = Stopwatch.GetElapsedTime(started);
+
+            return new CheckRow("Zeiterfassung lesbar", CheckLevel.Ok,
+                string.Create(CultureInfo.CurrentCulture,
+                    $"{route} — {recording.Days.Count} Tag(e) für Mitarbeiter {_employeeId} gelesen "
+                    + $"({took.TotalMilliseconds:0} ms)."));
         }
         catch (OperationCanceledException)
         {
@@ -280,64 +273,26 @@ public sealed class ConnectionCheck
         }
         catch (TanssException ex)
         {
-            string scrubbed = route + " — " + Redaction.Scrub(ex.Message);
-
-            return (new CheckRow("Zeiterfassung lesbar", CheckLevel.Fail, scrubbed),
-                    new CheckRow("Arbeitszeitmodell", CheckLevel.Unknown, NotProbed));
+            return new CheckRow("Zeiterfassung lesbar", CheckLevel.Fail,
+                route + " — " + Redaction.Scrub(ex.Message));
         }
-
-        TimeSpan took = Stopwatch.GetElapsedTime(started);
-
-        CheckRow recordingRow = new("Zeiterfassung lesbar", CheckLevel.Ok,
-            string.Create(CultureInfo.CurrentCulture,
-                $"{route} — {recording.Days.Count} Tag(e) für Mitarbeiter {_employeeId} gelesen "
-                + $"({took.TotalMilliseconds:0} ms)."));
-
-        return (recordingRow, ModelRow(recording));
     }
 
-    /// <summary>Der Befund zu den Arbeitszeitmodellen aus dem <c>meta</c>-Block.</summary>
-    private static CheckRow ModelRow(TimeRecording recording)
-    {
-        if (recording.Models.Count > 0)
-        {
-            string names = string.Join(", ", recording.Models.Values
-                .Select(model => model.Name ?? "(ohne Namen)").Distinct(StringComparer.Ordinal));
-
-            return new CheckRow("Arbeitszeitmodell", CheckLevel.Ok,
-                $"meta.listProperties.workingTimeModels gelesen: {names}. Damit lässt sich ein "
-                + "freier Samstag von einem vergessenen Arbeitstag unterscheiden.");
-        }
-
-        if (recording.Days.Count == 0)
-        {
-            return new CheckRow("Arbeitszeitmodell", CheckLevel.Unknown,
-                "Die Zeitauswertung hat keine Tage geliefert, deshalb ist über die "
-                + "Arbeitszeitmodelle nichts bekannt.");
-        }
-
-        if (recording.EmployeeModelId <= 0)
-        {
-            // Der haeufigere und harmlosere Fall: In TANSS ist diesem Mitarbeiter kein Modell
-            // zugeordnet. Das Werkzeug kann daran nichts aendern und tut auch nicht so.
-            // Zwei Aufrufe statt eines mit angehaengtem Text: string.Create waehlt seine
-            // Ueberladung ueber den Handler der Zeichenkettenschablone, und ein "+" dahinter
-            // schiebt eine gewoehnliche Zeichenkette unter -- CS1620, siehe .editorconfig.
-            string measured = string.Create(CultureInfo.CurrentCulture,
-                $"GET /api/v1/employees/{recording.Days[0].EmployeeId} führt workingHourModelId = 0 — diesem Mitarbeiter ist in TANSS kein Arbeitszeitmodell zugeordnet.");
-
-            return new CheckRow("Arbeitszeitmodell", CheckLevel.Warn,
-                measured + " Ohne Modell gilt Montag bis Freitag als Arbeitstag; das steht dann "
-                + "auch als Hinweis am jeweiligen Tag. Zugeordnet wird das Modell in TANSS, "
-                + "nicht hier.");
-        }
-
-        return new CheckRow("Arbeitszeitmodell", CheckLevel.Warn,
+    /// <summary>Der Befund zur eingestellten Arbeitswoche.</summary>
+    /// <remarks>
+    /// <para><b>Warum das eine Einstellung ist und keine Abfrage.</b> TANSS 10.10.0 gibt zu
+    /// einem Arbeitszeitmodell nur Kennung und Namen heraus; der Wochenplan, den die
+    /// Beschreibung unter <c>meta.listProperties.workingTimeModels</c> verspricht, fehlt in der
+    /// Antwort. Auch <c>/api/v1/workingHours/client</c> hilft nicht — die Route gibt es in
+    /// 10.10.0 nicht, und in 10.15 liefert sie die Servicezeiten der <i>Kunden</i>.</para>
+    /// <para>Ohne diese Angabe lädt die Konfiguration nicht, deshalb steht hier immer etwas.</para>
+    /// </remarks>
+    private CheckRow WorkWeekRow() =>
+        new("Arbeitswoche", CheckLevel.Ok,
             string.Create(CultureInfo.CurrentCulture,
-                $"Der Mitarbeiter trägt Modell {recording.EmployeeModelId}, die Zeitauswertung liefert dazu aber keinen Wochenplan (erwartet unter meta.listProperties.workingTimeModels).")
-            + " Ohne Wochenplan gilt Montag bis Freitag als Arbeitstag — an einem Samstag im "
-            + "Schichtdienst wäre das falsch.");
-    }
+                $"{_week.Describe()}, {_week.Begin:t} bis {_week.End:t} (aus den Einstellungen).")
+            + " TANSS gibt den Wochenplan eines Mitarbeiters nicht heraus; ohne diese Angabe "
+            + "wäre jeder leere Samstag eine gemeldete Lücke.");
 
     /// <summary>Der Befund zur eigenen Firma — die Annahme, an der das Bundesland hängt.</summary>
     private async Task<CheckRow> OwnCompanyRowAsync(bool reachable, CancellationToken ct)

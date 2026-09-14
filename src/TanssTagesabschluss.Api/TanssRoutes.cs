@@ -243,27 +243,6 @@ public static class TanssRoutes
     /// </remarks>
     public const string OwnState = V1Prefix + "/employees/ownState";
 
-    /// <summary>
-    /// Ein einzelner Mitarbeiter — und damit <b>sein</b> Arbeitszeitmodell.
-    /// </summary>
-    /// <remarks>
-    /// <para><b>Das Arbeitszeitmodell hängt am Menschen, nicht am Tag.</b> Die Antwort trägt
-    /// <c>content.workingHourModelId</c>: eine Zahl je Mitarbeiter, gültig für alle seine Tage.
-    /// Der Tag der Zeitauswertung führt zwar ein Feld <c>workingTimeModelId</c> mit, das aber
-    /// auf der gemessenen Instanz durchgängig <c>0</c> ist.</para>
-    /// <para><b>Nachgemessen am 14.09.2026</b> gegen 10.10.0: HTTP 200,
-    /// <c>workingHourModelId</c> vorhanden. Für Mitarbeiter 1 steht dort <c>0</c> — ihm ist
-    /// kein Modell zugeordnet.</para>
-    /// <para><b>Nicht der Weg dorthin ist <c>/api/v1/workingHours/client</c>:</b> Diese Route
-    /// antwortet mit demselben Token 403 — genau wie ein frei erfundener Pfad unter
-    /// <c>/api/v1/</c>, und im ausgelieferten Archiv bildet kein Controller sie ab. Dort liegen
-    /// nur die Datenklassen (<c>TnsWorkingHoursClient</c> und Verwandte) ohne
-    /// <c>@RequestMapping</c>.</para>
-    /// </remarks>
-    /// <param name="employeeId">Die Mitarbeiterkennung.</param>
-    /// <returns>Der Pfad.</returns>
-    public static string EmployeeById(int employeeId) =>
-        string.Create(CultureInfo.InvariantCulture, $"{V1Prefix}/employees/{employeeId}");
     public const string OwnCompanyEmployees = ErpPrefix + "/companies/employees";
 
     /// <summary>Die Techniker der Instanz. Liegt auf <c>tanss.x</c>.</summary>

@@ -109,7 +109,6 @@ public sealed class DayService
             {
                 Date = day,
                 Timestamps = timestamps,
-                Model = timestamps is null ? null : recording.ModelFor(timestamps),
                 Supports = [.. supports.Where(entry => FallsOn(entry, day))],
                 Absences = [.. absences.Where(request => request.DayOn(day) is not null)],
                 AdditionalTypes = additionalTypes,

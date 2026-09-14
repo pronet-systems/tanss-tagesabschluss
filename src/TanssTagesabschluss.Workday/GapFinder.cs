@@ -46,7 +46,7 @@ public sealed record GapOptions
     public bool ConditionalHolidayCountsAsDayOff { get; init; } = true;
 
     /// <summary>
-    /// Welche Wochentage als Arbeitstage gelten, wenn TANSS kein Arbeitszeitmodell hergibt.
+    /// Wann gearbeitet wird - Wochentage und uebliche Arbeitszeit.
     /// </summary>
     /// <remarks>
     /// <para><b>Warum es diese Einstellung überhaupt gibt.</b> Nachgemessen am 14.09.2026 gegen
@@ -63,7 +63,7 @@ public sealed record GapOptions
     /// die trägt: An einem Samstag im Schichtdienst ist die Annahme falsch, und an einem freien
     /// Freitag in Teilzeit ebenso.</para>
     /// </remarks>
-    public WorkWeek WorkWeek { get; init; } = WorkWeek.Assumed;
+    public WorkWeek WorkWeek { get; init; } = WorkWeek.Default;
 
     /// <summary>
     /// Die Vorgabewerte.
@@ -72,92 +72,59 @@ public sealed record GapOptions
 }
 
 /// <summary>
-/// Welche Wochentage gearbeitet wird — die Angabe, die TANSS nicht herausgibt.
+/// Wann gearbeitet wird: die Wochentage und die uebliche Arbeitszeit.
 /// </summary>
 /// <remarks>
-/// <b>Der Unterschied zwischen „angenommen“ und „gesetzt“ ist der ganze Zweck dieses Typs.</b>
-/// Beides ergibt am Ende eine Menge von Wochentagen; nur sagt das eine „so wird es wohl sein“
-/// und das andere „so ist es“. Ein Werkzeug, das an einem Samstag mahnt, muss sagen können, auf
-/// welcher der beiden Grundlagen es das tut — sonst prüft der Techniker beim ersten falschen
-/// Hinweis nicht die Einstellung, sondern schaltet das Werkzeug ab.
+/// <para><b>Diese Angabe kommt aus der Konfiguration und nicht aus TANSS - gemessen, nicht
+/// vermutet.</b> TANSS 10.10.0 nennt zu einem Arbeitszeitmodell Kennung und Namen (unter
+/// <c>meta.linkedEntities.employeeWorkingTimeModels</c>), aber keinen Wochenplan; der in der
+/// Beschreibung genannte Ort <c>meta.listProperties.workingTimeModels</c> fehlt in der Antwort
+/// ganz. Auch <c>/api/v1/workingHours/client</c> hilft nicht: Die Route gibt es in 10.10.0
+/// nicht, und in 10.15 liefert sie die Servicezeiten der <i>Kunden</i>.</para>
+///
+/// <para><b>Deshalb ist die Angabe Pflicht</b> - siehe <c>ConfigValidator</c>. Sie zu raten
+/// waere der schlechtere Weg: Aus einer angenommenen 8:00 wuerde eine gemahnte Stunde, aus
+/// einem angenommenen freien Samstag ein uebersehener Arbeitstag.</para>
 /// </remarks>
 /// <param name="Days">Die Wochentage, an denen gearbeitet wird.</param>
-/// <param name="IsStated">
-/// <see langword="true"/>, wenn jemand die Tage ausdrücklich gesetzt hat;
-/// <see langword="false"/>, wenn sie die Vorgabe sind.
-/// </param>
-/// <param name="Begin">
-/// Der übliche Arbeitsbeginn; <see langword="null"/>, wenn keiner angegeben ist.
-/// </param>
-/// <param name="End">Das übliche Arbeitsende; <see langword="null"/> wie oben.</param>
-public sealed record WorkWeek(IReadOnlySet<DayOfWeek> Days, bool IsStated,
-                              TimeOnly? Begin = null, TimeOnly? End = null)
+/// <param name="Begin">Der uebliche Arbeitsbeginn.</param>
+/// <param name="End">Das uebliche Arbeitsende.</param>
+public sealed record WorkWeek(IReadOnlySet<DayOfWeek> Days, TimeOnly Begin, TimeOnly End)
 {
     /// <summary>
-    /// Liegt ein auswertbarer Arbeitsrahmen vor?
+    /// Montag bis Freitag, 8 bis 17 Uhr - die Vorbelegung der Eingabemaske.
     /// </summary>
     /// <remarks>
-    /// <b>Beides oder nichts, und das Ende muss nach dem Beginn liegen.</b> Ein halber Rahmen
-    /// ergäbe eine Lücke von 8:00 bis Mitternacht.
+    /// <b>Nur ein Startwert fuer die Einstellungen und fuer Tests.</b> Im Betrieb steht in
+    /// <see cref="GapOptions.WorkWeek"/> immer das, was jemand eingetragen hat; ohne Eintrag
+    /// laedt die Konfiguration gar nicht.
     /// </remarks>
-    public bool HasHours => Begin is { } from && End is { } until && until > from;
-
-    /// <summary>
-    /// Der erwartete Arbeitsrahmen eines Tages; <see langword="null"/>, wenn keiner feststeht.
-    /// </summary>
-    /// <remarks>
-    /// <para><b>Das ist die Antwort auf den teuersten blinden Fleck.</b> Lücken entstehen sonst
-    /// nur <i>innerhalb</i> gestempelter Anwesenheit — wer um 11:08 einstempelt, obwohl er um
-    /// 8:00 da war, hat für die drei Stunden davor gar keinen Stempel, also auch keine Lücke.
-    /// Genau diese Stunden fielen bisher durch jedes Raster.</para>
-    /// <para><b>Nur an gesetzten Arbeitstagen.</b> An einem Samstag einen Rahmen anzunehmen
-    /// hiesse, jedes Wochenende zu mahnen.</para>
-    /// </remarks>
-    /// <param name="date">Der Tag.</param>
-    /// <returns>Der Rahmen, oder <see langword="null"/>.</returns>
-    public TimeSegment? FrameOn(DateOnly date)
-    {
-        if (!IsStated || !HasHours || !Includes(date.DayOfWeek))
-        {
-            return null;
-        }
-
-        DateTime from = date.ToDateTime(Begin!.Value);
-        DateTime until = date.ToDateTime(End!.Value);
-
-        return new TimeSegment(
-            new DateTimeOffset(from, TimeZoneInfo.Local.GetUtcOffset(from)),
-            new DateTimeOffset(until, TimeZoneInfo.Local.GetUtcOffset(until)));
-    }
-
-    /// <summary>
-    /// Die Annahme: Montag bis Freitag, von niemandem bestätigt.
-    /// </summary>
-    public static WorkWeek Assumed { get; } = new(
+    public static WorkWeek Default { get; } = new(
         new HashSet<DayOfWeek>
         {
             DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday,
             DayOfWeek.Friday,
         },
-        IsStated: false);
+        new TimeOnly(8, 0),
+        new TimeOnly(17, 0));
 
-    /// <summary>Baut eine gesetzte Arbeitswoche.</summary>
+    /// <summary>Baut eine Arbeitswoche aus Tagen und Uhrzeiten.</summary>
     /// <remarks>
-    /// <b>Eine leere Menge ergibt die Annahme zurück.</b> Sieben abgewählte Tage hiessen „es
-    /// wird nie gearbeitet“ — dann meldete das Werkzeug nie etwas, und niemand käme darauf,
-    /// dass eine Einstellung schuld ist. Ein Versehen darf nicht stiller sein als die Vorgabe.
+    /// <b>Eine leere Menge oder ein verkehrter Rahmen ergibt <see cref="Default"/>.</b> Sieben
+    /// abgewaehlte Tage hiessen "es wird nie gearbeitet" - dann meldete das Werkzeug nie etwas,
+    /// und niemand kaeme darauf, dass eine Einstellung schuld ist. Die Pruefung beim Laden
+    /// faengt beides ab; dies ist der zweite Riegel.
     /// </remarks>
     /// <param name="days">Die Arbeitstage.</param>
-    /// <returns>Die gesetzte Arbeitswoche, oder <see cref="Assumed"/>.</returns>
-    /// <param name="begin">Der übliche Arbeitsbeginn, oder <see langword="null"/>.</param>
-    /// <param name="end">Das übliche Arbeitsende, oder <see langword="null"/>.</param>
-    public static WorkWeek Stated(IEnumerable<DayOfWeek> days, TimeOnly? begin = null,
-                                  TimeOnly? end = null)
+    /// <param name="begin">Der Arbeitsbeginn.</param>
+    /// <param name="end">Das Arbeitsende.</param>
+    /// <returns>Die Arbeitswoche.</returns>
+    public static WorkWeek Of(IEnumerable<DayOfWeek> days, TimeOnly begin, TimeOnly end)
     {
         ArgumentNullException.ThrowIfNull(days);
 
         HashSet<DayOfWeek> set = [.. days];
-        return set.Count == 0 ? Assumed : new WorkWeek(set, IsStated: true, begin, end);
+        return set.Count == 0 || end <= begin ? Default : new WorkWeek(set, begin, end);
     }
 
     /// <summary>Wird an diesem Wochentag gearbeitet?</summary>
@@ -165,8 +132,41 @@ public sealed record WorkWeek(IReadOnlySet<DayOfWeek> Days, bool IsStated,
     /// <returns><see langword="true"/>, wenn er ein Arbeitstag ist.</returns>
     public bool Includes(DayOfWeek day) => Days.Contains(day);
 
-    /// <summary>Die Arbeitstage als lesbare Aufzählung, etwa <c>Mo, Di, Mi, Do, Fr</c>.</summary>
-    /// <returns>Die Kürzel in der Reihenfolge der Woche.</returns>
+    /// <summary>
+    /// Der erwartete Arbeitsrahmen eines Tages; <see langword="null"/> an einem freien Tag.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Das ist die Antwort auf den teuersten blinden Fleck.</b> Luecken entstuenden
+    /// sonst nur <i>innerhalb</i> gestempelter Anwesenheit - wer um 11:08 einstempelt, obwohl er
+    /// um 8:00 da war, hat fuer die drei Stunden davor gar keinen Stempel, also auch keine
+    /// Luecke. Genau diese Stunden fielen durch jedes Raster.</para>
+    /// <para><b>Nur an Arbeitstagen.</b> An einem Samstag einen Rahmen anzunehmen hiesse, jedes
+    /// Wochenende zu mahnen.</para>
+    /// </remarks>
+    /// <param name="date">Der Tag.</param>
+    /// <returns>Der Rahmen, oder <see langword="null"/>.</returns>
+    public TimeSegment? FrameOn(DateOnly date)
+    {
+        if (!Includes(date.DayOfWeek))
+        {
+            return null;
+        }
+
+        DateTime from = date.ToDateTime(Begin);
+        DateTime until = date.ToDateTime(End);
+
+        return new TimeSegment(
+            new DateTimeOffset(from, TimeZoneInfo.Local.GetUtcOffset(from)),
+            new DateTimeOffset(until, TimeZoneInfo.Local.GetUtcOffset(until)));
+    }
+
+    /// <summary>Die Sollzeit eines Tages; <see langword="null"/> an einem freien Tag.</summary>
+    /// <param name="date">Der Tag.</param>
+    /// <returns>Die Dauer des Rahmens.</returns>
+    public TimeSpan? TargetOn(DateOnly date) => FrameOn(date)?.Duration;
+
+    /// <summary>Die Arbeitstage als lesbare Aufzaehlung, etwa <c>Mo, Di, Mi, Do, Fr</c>.</summary>
+    /// <returns>Die Kuerzel in der Reihenfolge der Woche.</returns>
     public string Describe()
     {
         // Montag zuerst und nicht Sonntag: DayOfWeek faengt bei Sonntag an, eine deutsche Woche
@@ -199,9 +199,6 @@ public sealed record DayInput
 
     /// <summary>Die Zeiterfassung dieses Tages; <see langword="null"/>, wenn TANSS keine liefert.</summary>
     public TimestampDay? Timestamps { get; init; }
-
-    /// <summary>Das Arbeitszeitmodell; <see langword="null"/>, wenn unbekannt.</summary>
-    public WorkingTimeModel? Model { get; init; }
 
     /// <summary>Alle Einträge der Leistungsliste dieses Tages — auch Termine und Abwesenheiten.</summary>
     public IReadOnlyList<SupportEntry> Supports { get; init; } = [];
@@ -300,8 +297,12 @@ public sealed class GapFinder
             ? _options.WorkWeek.FrameOn(input.Date)?.ClipTo(window)
             : null;
 
+        // Der Rahmen wird um die gestempelten Pausen erleichtert. Ohne diesen Abzug waere die
+        // Mittagspause eine Luecke: Sie liegt im erwarteten Arbeitsrahmen, traegt aber
+        // absichtlich keine Anwesenheit und darf keine Leistung tragen.
         IReadOnlyList<TimeSegment> searched = frame is { } expected
-            ? TimeSegment.Merge([.. attendance, Clip(expected, input.Now)])
+            ? TimeSegment.Subtract(
+                TimeSegment.Merge([.. attendance, Clip(expected, input.Now)]), pauses)
             : attendance;
 
         if (frame is { } shown && attendance.Count > 0)
@@ -489,7 +490,7 @@ public sealed class GapFinder
     /// sehr wohl zu erwarten. Entschieden wird das an
     /// <see cref="PlanningAdditionalType.Charged"/>.</para>
     /// </remarks>
-    private static (IReadOnlyList<TimeSegment> Spans, string? Label, AbsenceCoverage Coverage)
+    private (IReadOnlyList<TimeSegment> Spans, string? Label, AbsenceCoverage Coverage)
         Absences(DayInput input, TimeSegment window)
     {
         List<TimeSegment> spans = [];
@@ -510,7 +511,7 @@ public sealed class GapFinder
                 continue;
             }
 
-            TimeSegment span = Span(day, window, input.Model);
+            TimeSegment span = Span(day, window);
             if (span.IsEmpty)
             {
                 continue;
@@ -531,12 +532,12 @@ public sealed class GapFinder
 
     /// <summary>Der Zeitraum, den ein Abwesenheitstag belegt.</summary>
     /// <remarks>
-    /// Die Grenze zwischen Vor- und Nachmittag kommt aus dem Arbeitszeitmodell — die Mitte
-    /// zwischen Tagesbeginn und Tagesende. Ohne Modell gilt 12:00 Uhr. Eine feste Mittagsgrenze
-    /// wäre bei einem Arbeitstag von 7 bis 15 Uhr um eine Stunde daneben, und ein halber
-    /// Urlaubstag deckte dann die falsche Hälfte ab.
+    /// Die Grenze zwischen Vor- und Nachmittag kommt aus der eingestellten Arbeitszeit — die
+    /// Mitte zwischen Beginn und Ende. Eine feste Mittagsgrenze wäre bei einem Arbeitstag von
+    /// 7 bis 15 Uhr um eine Stunde daneben, und ein halber Urlaubstag deckte dann die falsche
+    /// Hälfte ab.
     /// </remarks>
-    private static TimeSegment Span(AbsenceDay day, TimeSegment window, WorkingTimeModel? model)
+    private TimeSegment Span(AbsenceDay day, TimeSegment window)
     {
         DateTimeOffset start = window.Start;
         DateTimeOffset end = window.End;
@@ -547,10 +548,10 @@ public sealed class GapFinder
                 return window;
 
             case AbsenceCoverage.Forenoon:
-                return new TimeSegment(start, Midpoint(window, model));
+                return new TimeSegment(start, Midpoint(window));
 
             case AbsenceCoverage.Afternoon:
-                return new TimeSegment(Midpoint(window, model), end);
+                return new TimeSegment(Midpoint(window), end);
 
             case AbsenceCoverage.TimeSpan:
                 return day.Start is { } from && day.End is { } to
@@ -562,19 +563,18 @@ public sealed class GapFinder
         }
     }
 
-    /// <summary>Die Mitte des Arbeitstags; ohne Modell 12:00 Uhr.</summary>
-    private static DateTimeOffset Midpoint(TimeSegment window, WorkingTimeModel? model)
+    /// <summary>Die Mitte des eingestellten Arbeitstags.</summary>
+    /// <remarks>
+    /// Gerechnet wird auf dem Kalendertag und nicht auf dem Rahmen: Der Rahmen fehlt an einem
+    /// freien Tag, ein halber Urlaubstag kann aber auch auf einen fallen — und dann ist die
+    /// Mitte zwischen Beginn und Ende immer noch die beste Grenze, die zu haben ist.
+    /// </remarks>
+    private DateTimeOffset Midpoint(TimeSegment window)
     {
-        WorkingDay? day = model?.DayFor(window.Start.LocalDateTime.DayOfWeek);
+        WorkWeek week = _options.WorkWeek;
+        int middle = (int)((week.Begin.ToTimeSpan() + week.End.ToTimeSpan()).TotalMinutes / 2);
 
-        if (day is { BeginOfDay: { } begin, EndOfDay: { } end }
-            && end.TotalMinutes > begin.TotalMinutes)
-        {
-            int middle = (begin.TotalMinutes + end.TotalMinutes) / 2;
-            return window.Start.AddMinutes(middle);
-        }
-
-        return window.Start.AddHours(12);
+        return window.Start.AddMinutes(middle);
     }
 
     /// <summary>Ist diese Abwesenheit berechnete Zeit — etwa Home-Office?</summary>
@@ -638,32 +638,11 @@ public sealed class GapFinder
             return DayKind.PartialAbsence;
         }
 
-        WorkingDay? day = input.Model?.DayFor(input.Date.DayOfWeek);
-
-        if (day is not null)
-        {
-            return day.IsWorkingDay ? DayKind.WorkingDay : DayKind.Weekend;
-        }
-
-        // Kein Wochenplan von TANSS. Nachgemessen gibt die Schnittstelle zu einem
-        // Arbeitszeitmodell nur Kennung und Namen heraus, keinen Plan -- also entscheidet die
-        // Einstellung. Ob sie gesetzt oder die Vorgabe ist, macht den Unterschied zwischen
-        // einer Aussage und einer Annahme, und genau das steht im Hinweis.
-        bool works = _options.WorkWeek.Includes(input.Date.DayOfWeek);
-
-        if (!_options.WorkWeek.IsStated)
-        {
-            notes.Add("Für diesen Tag liegt kein Arbeitszeitmodell vor — TANSS gibt zu einem "
-                      + "Modell nur dessen Namen heraus, keinen Wochenplan. Ob er ein Arbeitstag "
-                      + "war, ist deshalb angenommen und nicht belegt: "
-                      + _options.WorkWeek.Describe()
-                      + " gelten als Arbeitstage. Unter Einstellungen lässt sich die "
-                      + "Arbeitswoche festlegen; dann steht hier kein Hinweis mehr.");
-
-            return DayKind.Unknown;
-        }
-
-        return works ? DayKind.WorkingDay : DayKind.Weekend;
+        // Die Arbeitswoche entscheidet, und sie ist Pflicht: TANSS gibt den Wochenplan nicht
+        // heraus, und geraten wird hier nicht. Siehe WorkWeek.
+        return _options.WorkWeek.Includes(input.Date.DayOfWeek)
+            ? DayKind.WorkingDay
+            : DayKind.Weekend;
     }
 
     /// <summary>Das Urteil über den Tag.</summary>
@@ -673,17 +652,22 @@ public sealed class GapFinder
     /// Arbeitstag fiele durch jedes Raster. Deshalb ist er ein eigenes Urteil und nicht das
     /// Fehlen eines Befunds.
     /// </remarks>
-    private static DayVerdict Judge(DayInput input, TimeSegment window, DayKind kind,
+    private DayVerdict Judge(DayInput input, TimeSegment window, DayKind kind,
                                     IReadOnlyList<TimeSegment> attendance,
                                     List<Gap> gaps, List<string> notes)
     {
-        if (gaps.Count > 0)
-        {
-            return DayVerdict.HasGaps;
-        }
-
+        // "Gar nichts gestempelt" hat Vorrang vor "es sind Luecken da" -- auch wenn der
+        // erwartete Arbeitsrahmen laengst eine Luecke ueber den ganzen Tag ergibt. Der Satz
+        // "keine Zeit erfasst" sagt naemlich etwas anderes und Genaueres: Wer teilweise
+        // gestempelt hat, muss Leistungen nachtragen; wer gar nicht gestempelt hat, muss
+        // zuerst mit der Zeiterfassung ins Reine kommen.
         if (attendance.Count > 0)
         {
+            if (gaps.Count > 0)
+            {
+                return DayVerdict.HasGaps;
+            }
+
             bool stillRunning = input.Timestamps?.AttendancePeriods().Any(p => p.IsOngoing) == true;
             return stillRunning ? DayVerdict.Ongoing : DayVerdict.Complete;
         }
@@ -712,37 +696,20 @@ public sealed class GapFinder
             return DayVerdict.Ongoing;
         }
 
-        if (kind == DayKind.Unknown && input.Date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
-        {
-            notes.Add("Ohne Arbeitszeitmodell wird ein Wochenende als freier Tag behandelt.");
-            return DayVerdict.DayOff;
-        }
-
         return DayVerdict.NoTimeRecorded;
     }
 
-    /// <summary>
-    /// Wann der Arbeitstag endet — nach dem Arbeitszeitmodell, sonst um 17 Uhr.
-    /// </summary>
+    /// <summary>Wann der Arbeitstag endet — das eingestellte Arbeitsende.</summary>
     /// <remarks>
-    /// Die Ersatzannahme 17 Uhr ist gegriffen, aber sie wirkt nur an <b>einer</b> Stelle: Sie
-    /// entscheidet für den heutigen Tag ohne jeden Stempel, ob er als „läuft noch“ oder als
-    /// „keine Zeit erfasst“ gilt. Auf die Lücken selbst hat sie keinen Einfluss.
+    /// Wirkt an <b>einer</b> Stelle: Sie entscheidet für den heutigen Tag ohne jeden Stempel,
+    /// ob er als „läuft noch“ oder als „keine Zeit erfasst“ gilt. Auf die Lücken selbst hat sie
+    /// keinen Einfluss.
     /// </remarks>
-    private static DateTimeOffset EndOfWorkday(DayInput input, TimeSegment window)
-    {
-        WorkingDay? day = input.Model?.DayFor(input.Date.DayOfWeek);
-
-        return day?.EndOfDay is { } end && end.TotalMinutes > 0
-            ? window.Start.AddMinutes(end.TotalMinutes)
-            : window.Start.AddHours(17);
-    }
+    private DateTimeOffset EndOfWorkday(DayInput input, TimeSegment window) =>
+        window.Start + _options.WorkWeek.End.ToTimeSpan();
 
     /// <summary>Die Sollarbeitszeit des Tages; <see langword="null"/>, wenn unbekannt.</summary>
-    private static TimeSpan? TargetTime(DayInput input) =>
-        input.Model?.DayFor(input.Date.DayOfWeek) is { } day
-            ? TimeSpan.FromMinutes(day.WorkTimeInMinutes)
-            : null;
+    private TimeSpan? TargetTime(DayInput input) => _options.WorkWeek.TargetOn(input.Date);
 
     /// <summary>Die letzte Leistung vor einer Lücke.</summary>
     private static SupportEntry? Before(IReadOnlyList<SupportEntry> supports, TimeSegment gap) =>

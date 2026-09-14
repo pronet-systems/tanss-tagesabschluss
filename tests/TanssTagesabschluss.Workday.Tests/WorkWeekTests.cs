@@ -29,7 +29,7 @@ public sealed class WorkWeekTests
         Start.AddHours(hour).AddMinutes(minute);
 
     /// <summary>Mo–Fr, 8 bis 17 Uhr — gesetzt, nicht angenommen.</summary>
-    private static WorkWeek Gesetzt => WorkWeek.Stated(
+    private static WorkWeek Gesetzt => WorkWeek.Of(
         [DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday,
          DayOfWeek.Friday],
         new TimeOnly(8, 0),
@@ -50,7 +50,6 @@ public sealed class WorkWeekTests
         EmployeeId = 1,
         Date = datum,
         WeekDay = datum.DayOfWeek.ToString().ToUpperInvariant(),
-        WorkingTimeModelId = 0,
         Types = new Dictionary<string, IReadOnlyList<TimestampPeriod>>(StringComparer.OrdinalIgnoreCase)
         {
             [TimestampType.Work] = arbeit,
@@ -63,8 +62,6 @@ public sealed class WorkWeekTests
     {
         Date = datum,
         Timestamps = tag,
-        // Kein Arbeitszeitmodell -- genau der gemessene Zustand.
-        Model = null,
         Supports = leistungen,
         Holidays = HolidaySet.Empty,
         Now = jetzt ?? At(23, 0),
@@ -122,17 +119,6 @@ public sealed class WorkWeekTests
     }
 
     [Fact]
-    public void Ohne_gesetzten_Rahmen_bleibt_die_Zeit_davor_unsichtbar()
-    {
-        // Das bisherige Verhalten, hier festgehalten: Ohne Arbeitszeiten sucht das Werkzeug
-        // nur innerhalb der Anwesenheit -- und findet vor 11:08 nichts.
-        DayAnalysis result = new GapFinder()
-            .Analyse(Eingabe(Montag, Tag(Montag, Abschnitt(11, 8, 17, 0))));
-
-        Assert.DoesNotContain(result.Gaps, gap => gap.Segment.Start < At(11, 8));
-    }
-
-    [Fact]
     public void An_einem_freien_Tag_gilt_kein_Rahmen()
     {
         // Sonst mahnte das Werkzeug jeden Samstag -- und wer zweimal grundlos gemahnt wird,
@@ -157,42 +143,43 @@ public sealed class WorkWeekTests
     [Fact]
     public void Der_Rahmen_gilt_nur_an_den_gewaehlten_Tagen()
     {
-        WorkWeek nurDienstags = WorkWeek.Stated([DayOfWeek.Tuesday], new TimeOnly(8, 0),
-                                                new TimeOnly(17, 0));
+        WorkWeek nurDienstags = WorkWeek.Of([DayOfWeek.Tuesday], new TimeOnly(8, 0),
+                                            new TimeOnly(17, 0));
 
         Assert.Null(nurDienstags.FrameOn(Montag));
         Assert.NotNull(nurDienstags.FrameOn(new DateOnly(2026, 9, 15)));
     }
 
     [Fact]
-    public void Ohne_Uhrzeiten_gibt_es_keinen_Rahmen()
+    public void Sieben_abgewaehlte_Tage_ergeben_die_Vorgabe()
     {
-        // Ein halber Rahmen -- Beginn ohne Ende -- ergaebe ein offenes Fenster bis Mitternacht.
-        Assert.Null(WorkWeek.Stated([DayOfWeek.Monday]).FrameOn(Montag));
-        Assert.Null(WorkWeek.Stated([DayOfWeek.Monday], new TimeOnly(8, 0)).FrameOn(Montag));
+        // Sonst meldete das Werkzeug nie etwas, und niemand kaeme auf die Einstellung. Die
+        // Pruefung beim Laden faengt das ab; dies ist der zweite Riegel.
+        Assert.Equal(WorkWeek.Default, WorkWeek.Of([], new TimeOnly(8, 0), new TimeOnly(17, 0)));
     }
 
     [Fact]
-    public void Eine_angenommene_Arbeitswoche_traegt_keinen_Rahmen()
+    public void Ein_verkehrter_Rahmen_ergibt_die_Vorgabe()
     {
-        // Angenommene Tage sind eine Sache, angenommene Uhrzeiten eine viel gefaehrlichere:
-        // Aus einer geratenen 8:00 wuerde eine gemahnte Stunde.
-        Assert.False(WorkWeek.Assumed.IsStated);
-        Assert.Null(WorkWeek.Assumed.FrameOn(Montag));
+        // Ende vor Beginn hiesse eine negative Sollzeit -- und ein Fenster, das rueckwaerts
+        // laeuft, ergibt an jeder weiteren Stelle Unsinn.
+        Assert.Equal(WorkWeek.Default,
+            WorkWeek.Of([DayOfWeek.Monday], new TimeOnly(17, 0), new TimeOnly(8, 0)));
     }
 
     [Fact]
-    public void Sieben_abgewaehlte_Tage_ergeben_wieder_die_Annahme()
+    public void Die_Sollzeit_ist_die_Dauer_des_Rahmens()
     {
-        // Sonst meldete das Werkzeug nie etwas, und niemand kaeme auf die Einstellung.
-        Assert.False(WorkWeek.Stated([]).IsStated);
+        Assert.Equal(TimeSpan.FromHours(9), Gesetzt.TargetOn(Montag));
+        Assert.Null(Gesetzt.TargetOn(Samstag));
     }
 
     [Fact]
     public void Die_Arbeitstage_werden_in_der_Reihenfolge_der_Woche_genannt()
     {
-        Assert.Equal("Mo, Di, Mi, Do, Fr", WorkWeek.Assumed.Describe());
+        Assert.Equal("Mo, Di, Mi, Do, Fr", WorkWeek.Default.Describe());
         Assert.Equal("Sa, So",
-            WorkWeek.Stated([DayOfWeek.Sunday, DayOfWeek.Saturday]).Describe());
+            WorkWeek.Of([DayOfWeek.Sunday, DayOfWeek.Saturday], new TimeOnly(8, 0),
+                        new TimeOnly(17, 0)).Describe());
     }
 }

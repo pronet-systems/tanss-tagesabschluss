@@ -162,34 +162,42 @@ public static class ConfigValidator
             }
         }
 
-        // Leer heisst "nicht angegeben" und ist der Regelfall -- nur ein gesetzter Wert muss
-        // eine Uhrzeit sein.
-        if (!string.IsNullOrWhiteSpace(gaps.WorkBegin))
+        // --- Die Arbeitswoche ist Pflicht ------------------------------------------------
+        // TANSS gibt den Wochenplan eines Mitarbeiters nicht heraus: Zu einem Arbeitszeitmodell
+        // kommen Kennung und Name, kein Plan; der in der Beschreibung genannte Ort
+        // meta.listProperties.workingTimeModels fehlt in der Antwort ganz (nachgemessen am
+        // 14.09.2026 gegen 10.10.0). Ohne diese Angabe waere jeder leere Samstag eine gemeldete
+        // Luecke und jeder verspaetete Stempel unsichtbar -- deshalb steht sie hier als
+        // Bedingung und nicht als Empfehlung.
+        if (gaps.WorkDays.Count == 0)
         {
-            CheckTime(gaps.WorkBegin, "gaps.work_begin", problems);
+            problems.Add("gaps.work_days ist leer. Welche Wochentage Arbeitstage sind, gibt "
+                + "TANSS nicht heraus \u2014 ohne diese Angabe l\u00e4sst sich kein Tag einordnen. "
+                + "Sie steht unter Einstellungen, Abschnitt Arbeitswoche.");
         }
 
-        if (!string.IsNullOrWhiteSpace(gaps.WorkEnd))
+        foreach (string day in gaps.WorkDays)
         {
-            CheckTime(gaps.WorkEnd, "gaps.work_end", problems);
+            if (!Enum.TryParse(day, ignoreCase: true, out DayOfWeek _))
+            {
+                problems.Add(
+                    $"gaps.work_days enth\u00e4lt \u201e{day}\u201c \u2014 das ist kein Wochentag. "
+                    + "Erlaubt sind MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY und "
+                    + "SUNDAY. Ein Tippfehler hiesse hier, dass an diesem Tag stillschweigend "
+                    + "nicht gearbeitet wird und keine L\u00fccke gemeldet wird.");
+            }
         }
 
-        // Beides oder nichts: Ein Beginn ohne Ende ergaebe ein offenes Zeitfenster bis
-        // Mitternacht, ein Ende ohne Beginn eines ab Mitternacht.
-        if (string.IsNullOrWhiteSpace(gaps.WorkBegin) != string.IsNullOrWhiteSpace(gaps.WorkEnd))
-        {
-            problems.Add("gaps.work_begin und gaps.work_end gehören zusammen — es ist nur eines "
-                + "von beiden gesetzt. Ein halber Arbeitsrahmen ergäbe ein offenes Zeitfenster "
-                + "bis Mitternacht.");
-        }
+        CheckTime(gaps.WorkBegin, "gaps.work_begin", problems);
+        CheckTime(gaps.WorkEnd, "gaps.work_end", problems);
 
         if (TimeOnly.TryParse(gaps.WorkBegin, CultureInfo.InvariantCulture, out TimeOnly begin)
             && TimeOnly.TryParse(gaps.WorkEnd, CultureInfo.InvariantCulture, out TimeOnly end)
             && end <= begin)
         {
             problems.Add($"gaps.work_end ({gaps.WorkEnd}) liegt nicht nach gaps.work_begin "
-                + $"({gaps.WorkBegin}). Nachtschichten über Mitternacht kennt dieses Werkzeug "
-                + "nicht.");
+                + $"({gaps.WorkBegin}). Nachtschichten \u00fcber Mitternacht kennt dieses "
+                + "Werkzeug nicht.");
         }
 
         if (gaps.HistoryDays is < 1 or > 365)

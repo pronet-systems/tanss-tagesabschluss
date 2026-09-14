@@ -43,7 +43,7 @@ public sealed class ContractTests
             TimeRecording recording = await timestamps
                 .ReadAsync(employeeId, today.AddDays(-14), today);
 
-            _output.WriteLine($"Tage: {recording.Days.Count}, Modelle: {recording.Models.Count}");
+            _output.WriteLine($"Tage: {recording.Days.Count}");
 
             foreach (TimestampDay day in recording.Days.Take(3))
             {
@@ -51,7 +51,7 @@ public sealed class ContractTests
                     pair => $"{pair.Key}×{pair.Value.Count}"));
 
                 _output.WriteLine($"  {day.Date:yyyy-MM-dd} {day.WeekDay} "
-                                  + $"Modell {day.WorkingTimeModelId}: {types}");
+                                  + $"{types}");
             }
 
             Assert.NotEmpty(recording.Days);

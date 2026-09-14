@@ -162,20 +162,12 @@ public sealed record TimestampDay
 
     /// <summary>Der Wochentag, wie TANSS ihn benennt — <c>THRUSDAY</c> eingeschlossen.</summary>
     /// <remarks>
-    /// <b>Der Tippfehler ist echt.</b> Die Beschreibung zu 10.10.0 führt den Donnerstag als
-    /// <c>THRUSDAY</c>. Wer hier <c>THURSDAY</c> erwartet, findet den Donnerstag nie — siehe
-    /// <see cref="WorkingTimeModel.DayFor"/>, das beide Schreibweisen annimmt.
+    /// <b>Der Tippfehler ist echt:</b> Die Beschreibung zu 10.10.0 führt den Donnerstag als
+    /// <c>THRUSDAY</c>. Dieses Werkzeug wertet das Feld nicht aus — welcher Wochentag ein Tag
+    /// ist, rechnet es aus dem Datum. Es steht hier, weil TANSS es liefert und weil der
+    /// Tippfehler jeden überrascht, der es doch einmal benutzt.
     /// </remarks>
     [JsonPropertyName("weekDay")] public string? WeekDay { get; init; }
-
-    /// <summary>
-    /// Das Arbeitszeitmodell dieses Tages. Das Modell selbst steht im <c>meta</c>-Block.
-    /// </summary>
-    /// <remarks>
-    /// <c>0</c> ist eine gültige Kennung und bedeutet nicht „keines“ — das Beispiel der
-    /// Beschreibung führt ein Modell mit der Kennung 0 und dem Namen <c>DEFAULT</c>.
-    /// </remarks>
-    [JsonPropertyName("workingTimeModelId")] public int WorkingTimeModelId { get; init; }
 
     /// <summary>Alle Stempel dieses Tages.</summary>
     [JsonPropertyName("timestamps")]

@@ -159,60 +159,6 @@ public sealed class TimestampDayTests
     }
 }
 
-/// <summary>Das Arbeitszeitmodell — und der Tippfehler, der einen ganzen Wochentag kostet.</summary>
-public sealed class WorkingTimeModelTests
-{
-    [Fact]
-    public void Der_Donnerstag_wird_auch_als_THRUSDAY_gefunden()
-    {
-        // Die Beschreibung zu 10.10.0 fuehrt ihn mit vertauschten Buchstaben. Wer hier
-        // THURSDAY erwartet, findet den Donnerstag nie.
-        WorkingTimeModel model = new()
-        {
-            Days = new Dictionary<string, WorkingDay>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["THRUSDAY"] = new WorkingDay { WorkTimeInMinutes = 480 },
-            },
-        };
-
-        Assert.NotNull(model.DayFor(DayOfWeek.Thursday));
-    }
-
-    [Fact]
-    public void Der_Donnerstag_wird_auch_richtig_geschrieben_gefunden()
-    {
-        WorkingTimeModel model = new()
-        {
-            Days = new Dictionary<string, WorkingDay>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["THURSDAY"] = new WorkingDay { WorkTimeInMinutes = 480 },
-            },
-        };
-
-        Assert.NotNull(model.DayFor(DayOfWeek.Thursday));
-    }
-
-    [Fact]
-    public void Ein_Tag_ohne_Sollzeit_ist_kein_Arbeitstag()
-    {
-        // Entschieden an der Sollzeit und nicht daran, ob ein Tagesbeginn gesetzt ist: Im
-        // Beispiel der Beschreibung tragen Samstag und Sonntag Zeitfenster, aber 0 Minuten.
-        Assert.False(new WorkingDay { WorkTimeInMinutes = 0 }.IsWorkingDay);
-        Assert.True(new WorkingDay { WorkTimeInMinutes = 480 }.IsWorkingDay);
-    }
-
-    [Fact]
-    public void Vierundzwanzig_Uhr_ist_keine_Uhrzeit_aber_eine_Minutenzahl()
-    {
-        // TANSS schreibt das Tagesende als 24:00. Fuer TimeOnly ist das keine gueltige
-        // Uhrzeit; eine stillschweigende Wandlung in 00:00 ergaebe eine negative Dauer.
-        ClockTime end = new(24, 0);
-
-        Assert.Null(end.AsTimeOnly);
-        Assert.Equal(1440, end.TotalMinutes);
-    }
-}
-
 /// <summary>Die Zuordnungstypen — die Zahlen stammen aus dem Server, nicht aus der Beschreibung.</summary>
 public sealed class LinkTypeTests
 {

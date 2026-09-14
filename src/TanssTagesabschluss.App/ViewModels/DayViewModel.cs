@@ -187,8 +187,7 @@ public sealed partial class DayViewModel : ObservableObject
 
         if (_context.Composition is not { } composition)
         {
-            Error = "Es ist noch nichts eingerichtet. Unter „Einstellungen“ lässt sich die "
-                    + "Verbindung zu TANSS herstellen.";
+            Error = NotConfiguredMessage();
             Clear();
             return;
         }
@@ -233,6 +232,30 @@ public sealed partial class DayViewModel : ObservableObject
         {
             IsLoading = false;
         }
+    }
+
+    /// <summary>
+    /// Warum hier nichts steht — und was zu tun ist.
+    /// </summary>
+    /// <remarks>
+    /// <b>Der Grund gehört auf die Seite und nicht hinter ein Symbol.</b> „Es ist noch nichts
+    /// eingerichtet“ half nicht weiter, als die Verbindung längst stand und nur die
+    /// Arbeitswoche fehlte — der Techniker sucht dann am falschen Ende. Die Beanstandungen
+    /// der Konfigurationsprüfung sagen genau, welche Angabe fehlt.
+    /// </remarks>
+    private string NotConfiguredMessage()
+    {
+        AppStatus status = _context.Status;
+
+        if (status.Warnings.Count == 0)
+        {
+            return "Es ist noch nichts eingerichtet. Unter „Einstellungen“ lässt sich die "
+                + "Verbindung zu TANSS herstellen.";
+        }
+
+        return status.Message + " "
+            + string.Join(" ", status.Warnings.Select(warning => warning.Reason))
+            + " Zu berichtigen unter „Einstellungen“.";
     }
 
     /// <summary>Übernimmt ein Ergebnis in die Anzeige.</summary>

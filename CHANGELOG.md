@@ -8,6 +8,30 @@ folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## Unveröffentlicht
 
+### Entfernt
+
+- **Das Arbeitszeitmodell wird nicht mehr aus TANSS gelesen.** Es war nicht zu bekommen: Die
+  Schnittstelle nennt zu einem Modell Kennung und Namen (etwa „Kernzeit"), aber keinen
+  Wochenplan; der in der Beschreibung genannte Ort `meta.listProperties.workingTimeModels`
+  fehlt in der Antwort ganz — geprüft mit und ohne `employeeIds` und für einen Mitarbeiter,
+  dem ein Modell zugeordnet ist. Die Route `/api/v1/workingHours/client` hilft nicht: Es gibt
+  sie in 10.10.0 nicht, und in 10.15 liefert sie die Servicezeiten der *Kunden*.
+  Damit entfallen `TimeRecording.Models`, die Abfrage von `employees/{id}` und der `meta`-Block
+  der Zeitauswertung.
+
+### Geändert
+
+- **Die Arbeitswoche ist Pflichtangabe.** Ohne Wochentage und Arbeitszeit lädt die
+  Konfiguration nicht mehr; die Tagesansicht sagt dann, welche Angabe fehlt und wo sie steht.
+  Die Eingabemaske schlägt Montag bis Freitag, 08:00 bis 17:00 vor — bestätigen kostet einen
+  Klick. Eine hinterlegte Vorgabe wäre eine Vermutung, die niemand je bestätigt, und genau die
+  soll es hier nicht geben.
+- **Die gestempelte Pause bleibt eine Pause.** Der erwartete Arbeitsrahmen wird um sie
+  erleichtert — sonst wäre die Mittagspause eine Lücke.
+- **„Keine Zeit erfasst" hat Vorrang vor „Lücken".** Wer teilweise gestempelt hat, muss
+  Leistungen nachtragen; wer gar nicht gestempelt hat, muss zuerst mit der Zeiterfassung ins
+  Reine kommen. Die Sollzeit steht trotzdem als offenes Fenster bereit.
+
 ### Geändert
 
 - **Die Firmenliste klappt beim Tippen von selbst auf**, sobald es etwas zu sehen gibt — und

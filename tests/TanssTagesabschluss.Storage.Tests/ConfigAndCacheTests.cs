@@ -18,10 +18,57 @@ public sealed class ConfigValidatorTests
             BaseUrl = "https://tanss.beispiel.de/backend",
             EmployeeId = 7,
         },
+
+        // Pflichtangabe: TANSS gibt den Wochenplan eines Mitarbeiters nicht heraus.
+        Gaps = new GapSection
+        {
+            WorkDays = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"],
+            WorkBegin = "08:00",
+            WorkEnd = "17:00",
+        },
     };
 
     [Fact]
     public void Eine_vollstaendige_Konfiguration_geht_durch() => Valid.Validate();
+
+    /// <summary>
+    /// Ohne Arbeitswoche laedt die Konfiguration nicht.
+    /// </summary>
+    /// <remarks>
+    /// <b>Pflicht und nicht Empfehlung, und der Grund ist gemessen:</b> TANSS gibt den
+    /// Wochenplan eines Mitarbeiters nicht heraus. Ohne diese Angabe waere jeder leere Samstag
+    /// eine gemeldete Luecke, und ein verspaeteter Stempel bliebe unsichtbar. Lieber gar nicht
+    /// starten als still raten.
+    /// </remarks>
+    [Fact]
+    public void Ohne_Arbeitstage_wird_die_Konfiguration_abgelehnt()
+    {
+        AppConfig config = Valid with { Gaps = Valid.Gaps with { WorkDays = [] } };
+
+        ConfigValidationException error =
+            Assert.Throws<ConfigValidationException>(() => config.Validate());
+
+        Assert.Contains(error.Problems,
+            problem => problem.Contains("gaps.work_days", StringComparison.Ordinal));
+    }
+
+    /// <param name="begin">Der zu pruefende Arbeitsbeginn.</param>
+    /// <param name="end">Das zu pruefende Arbeitsende.</param>
+    [Theory]
+    [InlineData("", "17:00")]
+    [InlineData("08:00", "")]
+    [InlineData("17:00", "08:00")]
+    [InlineData("08:00", "08:00")]
+    [InlineData("acht Uhr", "17:00")]
+    public void Ein_unbrauchbarer_Arbeitsrahmen_wird_abgelehnt(string begin, string end)
+    {
+        AppConfig config = Valid with
+        {
+            Gaps = Valid.Gaps with { WorkBegin = begin, WorkEnd = end },
+        };
+
+        Assert.Throws<ConfigValidationException>(() => config.Validate());
+    }
 
     /// <summary>
     /// Der Rückblick darf bis zu einem Jahr reichen.
@@ -203,6 +250,12 @@ public sealed class ConfigStoreTests : IDisposable
                 EmployeeId = 42,
             },
             Company = new CompanySection { FederalState = "HE", PostalCode = "64380" },
+            Gaps = new GapSection
+            {
+                WorkDays = ["MONDAY", "FRIDAY"],
+                WorkBegin = "07:30",
+                WorkEnd = "16:00",
+            },
         };
 
         store.Save(config);
@@ -211,6 +264,12 @@ public sealed class ConfigStoreTests : IDisposable
         Assert.Equal(42, read.Tanss.EmployeeId);
         Assert.Equal("HE", read.Company.FederalState);
         Assert.Equal("64380", read.Company.PostalCode);
+
+        // Die Arbeitswoche ueberlebt den Umlauf: Sie ist Pflichtangabe, und ein stillschweigend
+        // verlorener Arbeitstag hiesse eine ungemeldete Luecke.
+        Assert.Equal(["MONDAY", "FRIDAY"], read.Gaps.WorkDays);
+        Assert.Equal("07:30", read.Gaps.WorkBegin);
+        Assert.Equal("16:00", read.Gaps.WorkEnd);
     }
 
     [Fact]
@@ -252,16 +311,21 @@ public sealed class ConfigStoreTests : IDisposable
     }
 
     [Fact]
-    public void Fehlende_Abschnitte_bekommen_die_Vorgaben()
+    public void Eine_Datei_ohne_Arbeitswoche_wird_beim_Laden_beanstandet()
     {
-        // Disallow verbietet UNBEKANNTE Felder, nicht ausgelassene.
+        // Disallow verbietet UNBEKANNTE Felder, nicht ausgelassene -- gelesen wird die Datei
+        // also. Sie faellt erst bei der Pruefung durch, und zwar an der Pflichtangabe.
         System.IO.File.WriteAllText(File,
             """{ "tanss": { "base_url": "https://x.de/backend", "employee_id": 1 } }""");
 
-        AppConfig config = new ConfigStore(File).Load();
+        // Laden und Pruefen sind zweierlei: Die Datei laesst sich lesen, nur die Arbeitswoche
+        // fehlt -- und die ist Pflicht. Deshalb wird hier die Ausnahme abgefangen und der
+        // Inhalt trotzdem geprueft.
+        ConfigValidationException error =
+            Assert.Throws<ConfigValidationException>(() => new ConfigStore(File).Load());
 
-        Assert.Equal(15, config.Gaps.MinimumMinutes);
-        Assert.Equal("16:45", config.Reminder.EveningTime);
+        Assert.Contains(error.Problems,
+            problem => problem.Contains("gaps.work_days", StringComparison.Ordinal));
     }
 }
 

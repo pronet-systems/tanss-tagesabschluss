@@ -91,11 +91,9 @@ public interface ITanssClient : IDisposable
 /// Lesen <b>mit</b> dem <c>meta</c>-Block.
 /// </summary>
 /// <remarks>
-/// <para><b>Für dieses Werkzeug ist der Umschlag keine Zugabe, sondern Pflicht.</b> Das
-/// Arbeitszeitmodell eines Tages steht ausschliesslich dort: Der Inhalt der Zeitauswertung
-/// nennt nur die <c>workingTimeModelId</c>, das Modell selbst liegt unter
-/// <c>meta.listProperties.workingTimeModels</c>. Ohne diesen Weg wüsste das Werkzeug nicht,
-/// ob ein leerer Tag ein Versäumnis oder ein freier Tag ist.</para>
+/// <para><b>Für dieses Werkzeug ist der Umschlag keine Zugabe.</b> Der Firmenname zu einer
+/// Ticketliste, die eigene Firma, die Namen der Techniker — all das steht nur dort, und ohne
+/// diesen Weg stünde in der Oberfläche „Firma 886“ statt eines Namens.</para>
 /// <para><b>Warum eine eigene Schnittstelle und keine neuen Glieder auf
 /// <see cref="ITanssClient"/>:</b> Der Grundvertrag bleibt schmal, damit ihn eine Attrappe in
 /// wenigen Zeilen erfüllt. Wer den Umschlag braucht, prüft auf diese Schnittstelle.</para>
@@ -132,7 +130,7 @@ public interface ITanssMetaRead
 }
 
 /// <summary>
-/// Die Zeiterfassung eines Mitarbeiters: Stempel, Abschnitte, Arbeitszeitmodell.
+/// Die Zeiterfassung eines Mitarbeiters: Stempel und ausgewertete Abschnitte.
 /// </summary>
 /// <remarks>
 /// <b>Ausschliesslich lesend.</b> Diese Schnittstelle kennt keinen Weg, einen Zeitstempel zu
@@ -142,7 +140,7 @@ public interface ITanssMetaRead
 public interface ITimestampRepository
 {
     /// <summary>
-    /// Liest die Tage eines Zeitraums samt Auswertung und Arbeitszeitmodellen.
+    /// Liest die Tage eines Zeitraums samt Auswertung.
     /// </summary>
     /// <param name="employeeId">Der Mitarbeiter.</param>
     /// <param name="from">Erster Tag, einschließlich.</param>
@@ -172,48 +170,16 @@ public interface ITimestampRepository
 /// sie wieder zusammenzusuchen, und liesse ihn dabei einen Tag ohne Modell übersehen.
 /// </remarks>
 /// <param name="Days">Die Tage, aufsteigend nach Datum.</param>
-/// <param name="Models">Die Arbeitszeitmodelle, geschlüsselt nach ihrer Kennung.</param>
-/// <param name="EmployeeModelId">
-/// Das Arbeitszeitmodell <b>dieses Mitarbeiters</b> aus
-/// <c>employees/{id}.workingHourModelId</c>; <c>0</c>, wenn ihm keines zugeordnet ist oder die
-/// Abfrage nicht getragen hat. Es stammt als Einziges hier <b>nicht</b> aus der Zeitauswertung
-/// — weil es dort nicht steht.
-/// </param>
-public sealed record TimeRecording(
-    IReadOnlyList<TimestampDay> Days,
-    IReadOnlyDictionary<int, WorkingTimeModel> Models,
-    int EmployeeModelId = 0)
+public sealed record TimeRecording(IReadOnlyList<TimestampDay> Days)
 {
     /// <summary>Ein leeres Ergebnis.</summary>
-    public static TimeRecording Empty { get; } = new([], new Dictionary<int, WorkingTimeModel>());
+    public static TimeRecording Empty { get; } = new([]);
 
     /// <summary>Der Tag mit diesem Datum; <see langword="null"/>, wenn TANSS keinen liefert.</summary>
     /// <param name="day">Das gesuchte Datum.</param>
     /// <returns>Der Tag, oder <see langword="null"/>.</returns>
     public TimestampDay? DayOn(DateOnly day) => Days.FirstOrDefault(entry => entry.Date == day);
 
-    /// <summary>Das Arbeitszeitmodell eines Tages; <see langword="null"/>, wenn keines vorliegt.</summary>
-    /// <remarks>
-    /// <para><b>Das Modell hängt am Mitarbeiter, nicht am Tag</b> — <see cref="EmployeeModelId"/>
-    /// kommt aus <c>employees/{id}.workingHourModelId</c> und gilt für alle seine Tage. Der Tag
-    /// führt zwar ein eigenes <c>workingTimeModelId</c> mit, aber nachgemessen am 14.09.2026
-    /// steht dort durchgängig <c>0</c>.</para>
-    /// <para><b>Trägt der Tag trotzdem eine Kennung, hat sie Vorrang.</b> Nicht aus Zutrauen,
-    /// sondern weil das Feld existiert: Träfe eine Instanz die Unterscheidung wirklich je Tag,
-    /// wäre die Zahl am Tag die genauere — und sie zu übergehen hiesse, an einem
-    /// Schichtwechsel die falsche Sollzeit anzunehmen. Auf der gemessenen Instanz greift dieser
-    /// Zweig nie.</para>
-    /// </remarks>
-    /// <param name="day">Der Tag.</param>
-    /// <returns>Das Modell, oder <see langword="null"/>.</returns>
-    public WorkingTimeModel? ModelFor(TimestampDay day)
-    {
-        ArgumentNullException.ThrowIfNull(day);
-
-        int id = day.WorkingTimeModelId > 0 ? day.WorkingTimeModelId : EmployeeModelId;
-
-        return Models.TryGetValue(id, out WorkingTimeModel? model) ? model : null;
-    }
 }
 
 /// <summary>Leistungen lesen und anlegen.</summary>

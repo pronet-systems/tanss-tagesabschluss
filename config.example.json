@@ -70,6 +70,15 @@
     // Kürzere Zeitfenster stehen nicht in der Liste. Fünfzehn Minuten, weil das in TANSS die
     // übliche Abrechnungseinheit ist — und weil ohne Schwelle dreissig Einträge von je vier
     // Minuten in der Liste stünden und die eine Stunde, um die es geht, darin unterginge.
+    // PFLICHT. Welche Wochentage gearbeitet wird und von wann bis wann. TANSS gibt den
+    // Wochenplan eines Mitarbeiters nicht heraus: Zu einem Arbeitszeitmodell kommen Kennung
+    // und Name, kein Plan. Ohne diese Angabe waere jeder leere Samstag eine gemeldete Luecke
+    // -- und wer um 11:08 einstempelt, obwohl er um 8:00 erwartet wurde, bliebe unbemerkt,
+    // denn ohne Stempel gibt es auch keine Luecke.
+    "work_days": ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"],
+    "work_begin": "08:00",
+    "work_end": "17:00",
+
     "minimum_minutes": 15,
 
     // Gilt ein nur regional geltender Feiertag als freier Tag? Betrifft Fronleichnam in

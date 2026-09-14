@@ -25,32 +25,26 @@ public sealed class GapFinderTests
     private static DateTimeOffset At(int hour, int minute = 0) =>
         Start.AddHours(hour).AddMinutes(minute);
 
-    /// <summary>Ein Arbeitszeitmodell mit Montag bis Freitag 8 bis 17 Uhr.</summary>
-    private static WorkingTimeModel Modell { get; } = new()
-    {
-        Id = 0,
-        Name = "TEST",
-        Days = new Dictionary<string, WorkingDay>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["MONDAY"] = Arbeitstag,
-            ["TUESDAY"] = Arbeitstag,
-            ["WEDNESDAY"] = Arbeitstag,
-            ["THRUSDAY"] = Arbeitstag,
-            ["FRIDAY"] = Arbeitstag,
-            ["SATURDAY"] = Freitag,
-            ["SUNDAY"] = Freitag,
-        },
-    };
+    /// <summary>
+    /// Montag bis Freitag, 8 bis 17 Uhr — dieselbe Vorgabe, die die Einstellungen anbieten.
+    /// </summary>
+    /// <remarks>
+    /// <para>Das Arbeitszeitmodell aus TANSS gibt es nicht mehr: Die Schnittstelle liefert zu
+    /// einem Modell nur Kennung und Namen, keinen Wochenplan. Die Arbeitswoche ist deshalb
+    /// Pflichtangabe der Konfiguration — siehe <see cref="WorkWeek"/>.</para>
+    /// <para><b>Sie gehört damit zum Fall und nicht zum Rahmenwerk.</b> Der erwartete
+    /// Arbeitsrahmen wird mitdurchsucht; wer bis 12 Uhr stempelt, aber bis 17 Uhr erwartet
+    /// wird, hat nachmittags zu Recht ein offenes Zeitfenster. Ein Test über die
+    /// <i>Mechanik</i> der Lückenrechnung muss deshalb die Arbeitswoche wählen, die zu seiner
+    /// Anwesenheit passt — sonst prüft er zwei Dinge auf einmal.</para>
+    /// </remarks>
+    private static GapOptions Ganztags { get; } = new() { WorkWeek = WorkWeek.Default };
 
-    private static WorkingDay Arbeitstag => new()
+    /// <summary>Dieselbe Woche, aber nur bis 12 Uhr — für die Fälle mit halbem Tag.</summary>
+    private static GapOptions Vormittags { get; } = new()
     {
-        Pause = 60,
-        BeginOfDay = new ClockTime(8, 0),
-        EndOfDay = new ClockTime(17, 0),
-        WorkTimeInMinutes = 480,
+        WorkWeek = WorkWeek.Of(WorkWeek.Default.Days, new TimeOnly(8, 0), new TimeOnly(12, 0)),
     };
-
-    private static WorkingDay Freitag => new() { Pause = 0, WorkTimeInMinutes = 0 };
 
     private static TimestampPeriod Abschnitt(int fromHour, int fromMinute,
                                              int toHour, int toMinute,
@@ -66,7 +60,6 @@ public sealed class GapFinderTests
         EmployeeId = 1,
         Date = Montag,
         WeekDay = "MONDAY",
-        WorkingTimeModelId = 0,
         Types = new Dictionary<string, IReadOnlyList<TimestampPeriod>>(StringComparer.OrdinalIgnoreCase)
         {
             [TimestampType.Work] = arbeit,
@@ -88,12 +81,10 @@ public sealed class GapFinderTests
     private static DayInput Eingabe(TimestampDay? tag, IEnumerable<SupportEntry>? leistungen = null,
                                     IEnumerable<AbsenceRequest>? abwesenheiten = null,
                                     HolidaySet? feiertage = null,
-                                    DateTimeOffset? jetzt = null,
-                                    WorkingTimeModel? modell = null) => new()
+                                    DateTimeOffset? jetzt = null) => new()
                                     {
                                         Date = Montag,
                                         Timestamps = tag,
-                                        Model = modell ?? Modell,
                                         Supports = [.. leistungen ?? []],
                                         Absences = [.. abwesenheiten ?? []],
                                         Holidays = feiertage ?? HolidaySet.Empty,
@@ -106,7 +97,7 @@ public sealed class GapFinderTests
     [Fact]
     public void Ein_vollstaendig_erfasster_Tag_hat_keine_Luecke()
     {
-        DayAnalysis result = new GapFinder().Analyse(
+        DayAnalysis result = new GapFinder(Ganztags).Analyse(
             Eingabe(Tag(Abschnitt(8, 0, 12, 0), Abschnitt(13, 0, 17, 0)),
                     [Leistung(8, 0, 240), Leistung(13, 0, 240)]));
 
@@ -118,7 +109,7 @@ public sealed class GapFinderTests
     [Fact]
     public void Eine_Stunde_ohne_Leistung_wird_gefunden()
     {
-        DayAnalysis result = new GapFinder().Analyse(
+        DayAnalysis result = new GapFinder(Vormittags).Analyse(
             Eingabe(Tag(Abschnitt(8, 0, 12, 0)), [Leistung(8, 0, 180)]));
 
         Gap gap = Assert.Single(result.Gaps);
@@ -134,7 +125,7 @@ public sealed class GapFinderTests
         // DER Fall, um den es ausdruecklich geht. TANSS schneidet den WORK-Abschnitt bei
         // PAUSE_START; die Pause liegt damit in keinem Anwesenheitsabschnitt und kann gar
         // nicht als Luecke herauskommen.
-        DayAnalysis result = new GapFinder().Analyse(
+        DayAnalysis result = new GapFinder(Ganztags).Analyse(
             Eingabe(Tag(Abschnitt(8, 0, 12, 0), Abschnitt(13, 0, 17, 0)),
                     [Leistung(8, 0, 240), Leistung(13, 0, 240)]));
 
@@ -150,7 +141,7 @@ public sealed class GapFinderTests
     {
         // Zehn Minuten zwischen zwei Leistungen: der Griff zum Kaffee, keine vergessene
         // Leistung. Ohne Schwelle waere die Liste voll davon.
-        DayAnalysis result = new GapFinder().Analyse(
+        DayAnalysis result = new GapFinder(Vormittags).Analyse(
             Eingabe(Tag(Abschnitt(8, 0, 12, 0)), [Leistung(8, 0, 110), Leistung(10, 0, 120)]));
 
         Assert.Empty(result.Gaps);
@@ -160,7 +151,7 @@ public sealed class GapFinderTests
     [Fact]
     public void Die_Schwelle_laesst_sich_heruntersetzen()
     {
-        DayAnalysis result = new GapFinder(new GapOptions { MinimumGap = TimeSpan.FromMinutes(5) })
+        DayAnalysis result = new GapFinder(Vormittags with { MinimumGap = TimeSpan.FromMinutes(5) })
             .Analyse(Eingabe(Tag(Abschnitt(8, 0, 12, 0)),
                              [Leistung(8, 0, 110), Leistung(10, 0, 120)]));
 
@@ -175,7 +166,7 @@ public sealed class GapFinderTests
     {
         // TANSS setzt bei einem laufenden Abschnitt als Ende das Tagesende. Ungeschnitten
         // haette, wer um 10 Uhr nachsieht, eine Luecke von vierzehn Stunden.
-        DayAnalysis result = new GapFinder().Analyse(
+        DayAnalysis result = new GapFinder(Ganztags).Analyse(
             Eingabe(Tag(Abschnitt(8, 0, 23, 59, state: "ONGOING")),
                     [Leistung(8, 0, 60)],
                     jetzt: At(10, 0)));
@@ -189,7 +180,7 @@ public sealed class GapFinderTests
     [Fact]
     public void Ein_laufender_Tag_ohne_Luecke_heisst_laeuft_noch()
     {
-        DayAnalysis result = new GapFinder().Analyse(
+        DayAnalysis result = new GapFinder(Ganztags).Analyse(
             Eingabe(Tag(Abschnitt(8, 0, 23, 59, state: "ONGOING")),
                     [Leistung(8, 0, 120)],
                     jetzt: At(10, 0)));
@@ -202,7 +193,7 @@ public sealed class GapFinderTests
     [Fact]
     public void Ein_ganzer_Tag_Urlaub_erzeugt_keine_Mahnung()
     {
-        DayAnalysis result = new GapFinder().Analyse(
+        DayAnalysis result = new GapFinder(Ganztags).Analyse(
             Eingabe(tag: null, abwesenheiten: [Urlaub(ganztags: true)]));
 
         Assert.Equal(DayKind.Absence, result.Kind);
@@ -216,7 +207,7 @@ public sealed class GapFinderTests
     {
         // Der Fall, in dem am ehesten etwas verlorengeht: Vormittag Urlaub, nachmittags
         // gearbeitet - und die Leistung am Nachmittag vergessen.
-        DayAnalysis result = new GapFinder().Analyse(
+        DayAnalysis result = new GapFinder(Ganztags).Analyse(
             Eingabe(Tag(Abschnitt(8, 0, 17, 0)),
                     leistungen: [],
                     abwesenheiten: [Urlaub(ganztags: false)]));
@@ -236,7 +227,7 @@ public sealed class GapFinderTests
         // trotzdem gearbeitet hat, soll seine Luecke sehen.
         AbsenceRequest beantragt = Urlaub(ganztags: true) with { Status = AbsenceStatus.Requested };
 
-        DayAnalysis result = new GapFinder().Analyse(
+        DayAnalysis result = new GapFinder(Vormittags).Analyse(
             Eingabe(Tag(Abschnitt(8, 0, 12, 0)), abwesenheiten: [beantragt]));
 
         Gap gap = Assert.Single(result.Gaps);
@@ -266,7 +257,7 @@ public sealed class GapFinderTests
             }],
         };
 
-        DayAnalysis result = new GapFinder().Analyse(input);
+        DayAnalysis result = new GapFinder(Vormittags).Analyse(input);
 
         Gap gap = Assert.Single(result.Gaps);
         Assert.Equal(TimeSpan.FromHours(4), gap.Duration);
@@ -278,7 +269,7 @@ public sealed class GapFinderTests
         HolidaySet feiertage = HolidaySet.Known(
             [new Holiday(Montag, "Tag der Deutschen Einheit", IsConditional: false, Note: null)]);
 
-        DayAnalysis result = new GapFinder().Analyse(Eingabe(tag: null, feiertage: feiertage));
+        DayAnalysis result = new GapFinder(Ganztags).Analyse(Eingabe(tag: null, feiertage: feiertage));
 
         Assert.Equal(DayKind.Holiday, result.Kind);
         Assert.Equal(DayVerdict.DayOff, result.Verdict);
@@ -293,7 +284,7 @@ public sealed class GapFinderTests
         HolidaySet feiertage = HolidaySet.Known(
             [new Holiday(Montag, "Karfreitag", IsConditional: false, Note: null)]);
 
-        DayAnalysis result = new GapFinder().Analyse(
+        DayAnalysis result = new GapFinder(Ganztags).Analyse(
             Eingabe(Tag(Abschnitt(9, 0, 13, 0)), feiertage: feiertage));
 
         Gap gap = Assert.Single(result.Gaps);
@@ -310,7 +301,7 @@ public sealed class GapFinderTests
                         Note: "Fronleichnam ist kein gesetzlicher Feiertag ausser im Eichsfeld."),
         ]);
 
-        DayAnalysis result = new GapFinder().Analyse(Eingabe(tag: null, feiertage: feiertage));
+        DayAnalysis result = new GapFinder(Ganztags).Analyse(Eingabe(tag: null, feiertage: feiertage));
 
         Assert.Equal(DayKind.Holiday, result.Kind);
         Assert.Contains(result.Notes,
@@ -322,7 +313,7 @@ public sealed class GapFinderTests
     {
         DayInput input = Eingabe(tag: null) with { Date = new DateOnly(2026, 9, 19) };
 
-        DayAnalysis result = new GapFinder().Analyse(input);
+        DayAnalysis result = new GapFinder(Ganztags).Analyse(input);
 
         Assert.Equal(DayKind.Weekend, result.Kind);
         Assert.Equal(DayVerdict.DayOff, result.Verdict);
@@ -333,11 +324,18 @@ public sealed class GapFinderTests
     [Fact]
     public void Ein_Arbeitstag_ganz_ohne_Zeiterfassung_ist_ein_eigener_Befund()
     {
-        // Wo keine Anwesenheit steht, gibt es auch keine Luecke - ein vollstaendig
-        // vergessener Tag fiele durch jede reine Lueckenrechnung.
-        DayAnalysis result = new GapFinder().Analyse(Eingabe(tag: null));
+        // Frueher fiel ein vollstaendig vergessener Tag durch jede reine Lueckenrechnung: Wo
+        // keine Anwesenheit steht, liegt auch keine Luecke. Mit dem erwarteten Arbeitsrahmen
+        // steht die ganze Sollzeit als ein offenes Fenster da - fertig zum Ausfuellen.
+        DayAnalysis result = new GapFinder(Vormittags).Analyse(Eingabe(tag: null));
 
-        Assert.Empty(result.Gaps);
+        Gap only = Assert.Single(result.Gaps);
+        Assert.Equal(At(8, 0), only.Segment.Start);
+        Assert.Equal(At(12, 0), only.Segment.End);
+
+        // Das Urteil bleibt trotzdem "keine Zeit erfasst" und wird nicht zu "Luecken": Wer
+        // teilweise gestempelt hat, muss Leistungen nachtragen; wer gar nicht gestempelt hat,
+        // muss zuerst mit der Zeiterfassung ins Reine kommen.
         Assert.Equal(DayVerdict.NoTimeRecorded, result.Verdict);
         Assert.True(result.NeedsAttention);
     }
@@ -345,7 +343,7 @@ public sealed class GapFinderTests
     [Fact]
     public void Heute_ohne_Stempel_ist_kein_Versaeumnis()
     {
-        DayAnalysis result = new GapFinder().Analyse(
+        DayAnalysis result = new GapFinder(Ganztags).Analyse(
             Eingabe(tag: null, jetzt: At(7, 30)));
 
         Assert.Equal(DayVerdict.Ongoing, result.Verdict);
@@ -353,14 +351,14 @@ public sealed class GapFinderTests
     }
 
     [Fact]
-    public void Ohne_Arbeitszeitmodell_wird_die_Annahme_ausgesprochen()
+    public void Ein_Arbeitstag_ganz_ohne_Stempel_ist_ein_eigenes_Urteil()
     {
-        DayAnalysis result = new GapFinder().Analyse(Eingabe(tag: null, modell: LeeresModell));
+        // Der Fall, den eine reine Lueckenrechnung nicht sehen kann: Wo gar nichts gestempelt
+        // ist, gibt es auch keine Anwesenheit, in der eine Luecke liegen koennte.
+        DayAnalysis result = new GapFinder(Ganztags).Analyse(Eingabe(tag: null));
 
-        Assert.Equal(DayKind.Unknown, result.Kind);
+        Assert.Equal(DayKind.WorkingDay, result.Kind);
         Assert.Equal(DayVerdict.NoTimeRecorded, result.Verdict);
-        Assert.Contains(result.Notes,
-            note => note.Contains("kein Arbeitszeitmodell", StringComparison.Ordinal));
     }
 
     // --- Vorschlaege --------------------------------------------------------------------
@@ -368,7 +366,7 @@ public sealed class GapFinderTests
     [Fact]
     public void Bei_gleichem_Ticket_links_und_rechts_wird_es_vorgeschlagen()
     {
-        DayAnalysis result = new GapFinder().Analyse(
+        DayAnalysis result = new GapFinder(Vormittags).Analyse(
             Eingabe(Tag(Abschnitt(8, 0, 12, 0)),
                     [Leistung(8, 0, 60, ticketId: 4711, companyId: 100),
                      Leistung(11, 0, 60, ticketId: 4711, companyId: 100)]));
@@ -383,7 +381,7 @@ public sealed class GapFinderTests
     {
         // Ein geratenes Ticket, das jemand unbesehen bestaetigt, bucht Arbeitszeit beim
         // falschen Kunden - und das faellt niemandem auf.
-        DayAnalysis result = new GapFinder().Analyse(
+        DayAnalysis result = new GapFinder(Vormittags).Analyse(
             Eingabe(Tag(Abschnitt(8, 0, 12, 0)),
                     [Leistung(8, 0, 60, ticketId: 4711), Leistung(11, 0, 60, ticketId: 4712)]));
 
@@ -394,7 +392,7 @@ public sealed class GapFinderTests
     [Fact]
     public void Mit_nur_einer_Nachbarin_zaehlt_deren_Ticket()
     {
-        DayAnalysis result = new GapFinder().Analyse(
+        DayAnalysis result = new GapFinder(Ganztags).Analyse(
             Eingabe(Tag(Abschnitt(8, 0, 12, 0)), [Leistung(8, 0, 60, ticketId: 4711)]));
 
         Gap gap = Assert.Single(result.Gaps);
@@ -410,7 +408,7 @@ public sealed class GapFinderTests
         // verhindert, dass das Stueck dahinter als Luecke erscheint.
         SupportEntry mitPause = Leistung(8, 0, 180) with { DurationBreak = 60 };
 
-        DayAnalysis result = new GapFinder().Analyse(
+        DayAnalysis result = new GapFinder(Vormittags).Analyse(
             Eingabe(Tag(Abschnitt(8, 0, 12, 0)), [mitPause]));
 
         Assert.Empty(result.Gaps);
@@ -424,7 +422,7 @@ public sealed class GapFinderTests
             PlanningType = PlanningType.AppointmentFix,
         };
 
-        DayAnalysis result = new GapFinder().Analyse(
+        DayAnalysis result = new GapFinder(Vormittags).Analyse(
             Eingabe(Tag(Abschnitt(8, 0, 12, 0)), [termin]));
 
         Gap gap = Assert.Single(result.Gaps);
@@ -438,7 +436,7 @@ public sealed class GapFinderTests
         // Termin zu behandeln machte jeden gewoehnlichen Tag zu einer einzigen Luecke.
         SupportEntry ohne = Leistung(8, 0, 240) with { PlanningType = null };
 
-        DayAnalysis result = new GapFinder().Analyse(
+        DayAnalysis result = new GapFinder(Vormittags).Analyse(
             Eingabe(Tag(Abschnitt(8, 0, 12, 0)), [ohne]));
 
         Assert.Empty(result.Gaps);
@@ -447,7 +445,7 @@ public sealed class GapFinderTests
     [Fact]
     public void Ueberlappende_Leistungen_reissen_kein_Loch()
     {
-        DayAnalysis result = new GapFinder().Analyse(
+        DayAnalysis result = new GapFinder(Vormittags).Analyse(
             Eingabe(Tag(Abschnitt(8, 0, 12, 0)), [Leistung(8, 0, 180), Leistung(10, 0, 120)]));
 
         Assert.Empty(result.Gaps);
@@ -456,7 +454,7 @@ public sealed class GapFinderTests
     [Fact]
     public void Die_Deckung_wird_als_Anteil_ausgewiesen()
     {
-        DayAnalysis result = new GapFinder().Analyse(
+        DayAnalysis result = new GapFinder(Vormittags).Analyse(
             Eingabe(Tag(Abschnitt(8, 0, 12, 0)), [Leistung(8, 0, 120)]));
 
         Assert.Equal(0.5d, result.Coverage, precision: 3);
@@ -465,13 +463,6 @@ public sealed class GapFinderTests
     }
 
     // --- Hilfsmittel --------------------------------------------------------------------
-
-    private static WorkingTimeModel LeeresModell { get; } = new()
-    {
-        Id = 99,
-        Name = "OHNE TAGE",
-        Days = new Dictionary<string, WorkingDay>(StringComparer.OrdinalIgnoreCase),
-    };
 
     private static AbsenceRequest Urlaub(bool ganztags) => new()
     {

@@ -1,12 +1,11 @@
 using System.Globalization;
-using System.Text.Json;
 using TanssTagesabschluss.Api.Contract;
 using TanssTagesabschluss.Api.Model;
 
 namespace TanssTagesabschluss.Api.Repository;
 
 /// <summary>
-/// Die Zeiterfassung: Stempel, Abschnitte und Arbeitszeitmodelle.
+/// Die Zeiterfassung: Stempel und die Abschnitte, die TANSS daraus rechnet.
 /// </summary>
 /// <remarks>
 /// <para><b>Diese Klasse liest, und sie schreibt nie.</b> Es gibt in ihr keinen Weg, einen
@@ -14,36 +13,21 @@ namespace TanssTagesabschluss.Api.Repository;
 /// Arbeitszeit eines Menschen ist nichts, was ein Werkzeug zur Leistungskontrolle nebenbei
 /// ändert. Wer hier einen Schreibweg ergänzt, ändert die Grundlage einer Lohnabrechnung.</para>
 ///
-/// <para><b>Inhalt und Umschlag gehören zusammen.</b> Die Tage stehen im <c>content</c>, die
-/// Arbeitszeitmodelle im <c>meta</c> — und ohne Modell ist ein leerer Tag nicht deutbar: Er kann
-/// ein vergessener Arbeitstag sein oder ein freier Samstag. Deshalb geht beides in einem
-/// <see cref="TimeRecording"/> heraus und nicht getrennt.</para>
+/// <para><b>Das Arbeitszeitmodell wird hier <i>nicht</i> gelesen, und das ist gemessen und
+/// nicht versehentlich.</b> TANSS 10.10.0 gibt zu einem Modell nur Kennung und Namen heraus
+/// (<c>meta.linkedEntities.employeeWorkingTimeModels</c>, etwa <c>{"1":{"name":"Kernzeit"}}</c>);
+/// der Wochenplan, den die Beschreibung unter <c>meta.listProperties.workingTimeModels</c>
+/// verspricht, fehlt in der Antwort ganz — geprüft am 14.09.2026 mit und ohne
+/// <c>employeeIds</c> und für einen Mitarbeiter, dem ein Modell zugeordnet ist. Welche Tage und
+/// Uhrzeiten gelten, kommt deshalb aus der Konfiguration; siehe <c>GapOptions.WorkWeek</c>.</para>
 /// </remarks>
 public sealed class TimestampRepository : ITimestampRepository
 {
-    private const string ListProperties = "listProperties";
-    private const string WorkingTimeModels = "workingTimeModels";
-    private const string Extras = "extras";
-    private const string Model = "model";
 
     private readonly ITanssClient _client;
 
-    /// <summary>
-    /// Die zuletzt gelesene Modellkennung je Mitarbeiter.
-    /// </summary>
-    /// <remarks>
-    /// Das Arbeitszeitmodell eines Menschen wechselt nicht zwischen zwei Tagesansichten. Es bei
-    /// jedem Blaettern erneut zu holen kostete einen Aufruf je Tageswechsel fuer eine Zahl, die
-    /// sich zwischendurch nicht aendert. Der Zwischenspeicher lebt so lange wie dieses Lager -
-    /// also so lange wie die Verbindung; eine Aenderung in TANSS wirkt nach einem Neustart.
-    /// </remarks>
-    private readonly Dictionary<int, int> _modelIdByEmployee = [];
-
     /// <summary>Baut das Repository.</summary>
-    /// <param name="client">
-    /// Der HTTP-Zugang. Er muss zusätzlich <see cref="ITanssMetaRead"/> erfüllen — ohne den
-    /// <c>meta</c>-Block gibt es keine Arbeitszeitmodelle.
-    /// </param>
+    /// <param name="client">Der HTTP-Zugang.</param>
     public TimestampRepository(ITanssClient client)
     {
         ArgumentNullException.ThrowIfNull(client);
@@ -65,19 +49,6 @@ public sealed class TimestampRepository : ITimestampRepository
                 + "Mitarbeiter, der nie gearbeitet hat.");
         }
 
-        if (_client is not ITanssMetaRead metaRead)
-        {
-            // Kein Rueckfallweg: Ohne meta gibt es keine Arbeitszeitmodelle, und ohne die
-            // waere jeder leere Samstag eine gemeldete Luecke.
-            throw new InvalidOperationException(
-                "Dieser HTTP-Zugang gibt den meta-Block nicht heraus, deshalb lassen sich die "
-                + "Arbeitszeitmodelle nicht lesen. Das ist ein Programmierfehler, kein "
-                + "Bedienfehler: Das Modell eines Tages steht ausschliesslich unter "
-                + "meta.listProperties.workingTimeModels. Dem "
-                + $"{nameof(TimestampRepository)} ist ein Zugang zu übergeben, der "
-                + $"{nameof(ITanssMetaRead)} erfüllt — der mitgelieferte TanssClient tut das.");
-        }
-
         Timeframe span = Span(from, until);
         Dictionary<string, string?> query = new(StringComparer.Ordinal)
         {
@@ -86,8 +57,8 @@ public sealed class TimestampRepository : ITimestampRepository
             ["employeeIds"] = employeeId.ToString(CultureInfo.InvariantCulture),
         };
 
-        (List<TimestampDay>? days, IReadOnlyDictionary<string, object?> meta) = await metaRead
-            .GetWithMetaAsync<List<TimestampDay>>(TanssRoutes.TimestampStatistics, query, ct)
+        List<TimestampDay>? days = await _client
+            .GetAsync<List<TimestampDay>>(TanssRoutes.TimestampStatistics, query, ct)
             .ConfigureAwait(false);
 
         if (days is null or { Count: 0 })
@@ -95,54 +66,7 @@ public sealed class TimestampRepository : ITimestampRepository
             return TimeRecording.Empty;
         }
 
-        return new TimeRecording(
-            [.. days.OrderBy(day => day.Date)],
-            ReadModels(meta),
-            await ModelIdOfAsync(employeeId, ct).ConfigureAwait(false));
-    }
-
-    /// <summary>
-    /// Liest, welches Arbeitszeitmodell diesem <b>Mitarbeiter</b> zugeordnet ist.
-    /// </summary>
-    /// <remarks>
-    /// <para><b>Das Modell hängt am Menschen und nicht am Tag.</b> Die Zeitauswertung führt je
-    /// Tag zwar ein <c>workingTimeModelId</c> mit, aber nachgemessen am 14.09.2026 steht dort
-    /// auf jedem Tag <c>0</c>. Die tragende Zahl ist
-    /// <c>employees/{id}.workingHourModelId</c>.</para>
-    ///
-    /// <para><b>Wirft nicht.</b> Die Modellkennung ist eine Verfeinerung: Ohne sie behandelt die
-    /// Fachschicht Montag bis Freitag als Arbeitstage und sagt das auch. Diesen Rückfall gegen
-    /// einen Aussetzer der Leitung einzutauschen — also die ganze Tagesansicht scheitern zu
-    /// lassen — wäre der schlechtere Handel.</para>
-    /// </remarks>
-    private async Task<int> ModelIdOfAsync(int employeeId, CancellationToken ct)
-    {
-        if (_modelIdByEmployee.TryGetValue(employeeId, out int cached))
-        {
-            return cached;
-        }
-
-        try
-        {
-            Employee? employee = await _client
-                .GetAsync<Employee>(TanssRoutes.EmployeeById(employeeId), ct: ct)
-                .ConfigureAwait(false);
-
-            int id = employee?.WorkingHourModelId ?? 0;
-            _modelIdByEmployee[employeeId] = id;
-            return id;
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (TanssException)
-        {
-            // Nicht zwischenspeichern: Beim naechsten Versuch darf es gelingen. Eine gemerkte
-            // Null hiesse, dass ein einziger Aussetzer das Modell fuer die ganze Sitzung
-            // verschwinden laesst.
-            return 0;
-        }
+        return new TimeRecording([.. days.OrderBy(day => day.Date)]);
     }
 
     /// <inheritdoc />
@@ -190,71 +114,4 @@ public sealed class TimestampRepository : ITimestampRepository
         return new Timeframe { From = first.From, To = last.To };
     }
 
-    /// <summary>
-    /// Liest die Arbeitszeitmodelle aus <c>meta.listProperties.workingTimeModels</c>.
-    /// </summary>
-    /// <remarks>
-    /// <para>Der Weg ist verschachtelt und in der Beschreibung nur als Beispiel belegt:
-    /// <c>listProperties</c> → <c>workingTimeModels</c> → Kennung als Schlüssel →
-    /// <c>extras</c> → <c>model</c>. Jede Stufe kann fehlen.</para>
-    /// <para><b>Was sich nicht lesen lässt, fehlt einfach.</b> Geworfen wird hier nicht: Ein
-    /// Tag ohne Modell wird von der Fachschicht als „Sollzeit unbekannt“ behandelt, und das ist
-    /// allemal besser, als wegen eines geänderten Umschlags gar keine Zeiten anzuzeigen.</para>
-    /// </remarks>
-    private static Dictionary<int, WorkingTimeModel> ReadModels(
-        IReadOnlyDictionary<string, object?> meta)
-    {
-        Dictionary<int, WorkingTimeModel> models = [];
-
-        if (!meta.TryGetValue(ListProperties, out object? raw)
-            || raw is not JsonElement properties
-            || properties.ValueKind != JsonValueKind.Object
-            || !properties.TryGetProperty(WorkingTimeModels, out JsonElement byId)
-            || byId.ValueKind != JsonValueKind.Object)
-        {
-            return models;
-        }
-
-        foreach (JsonProperty entry in byId.EnumerateObject())
-        {
-            if (!int.TryParse(entry.Name, NumberStyles.Integer, CultureInfo.InvariantCulture,
-                              out int id))
-            {
-                continue;
-            }
-
-            if (ReadModel(entry.Value) is { } model)
-            {
-                // Die Kennung aus dem Schluessel hat Vorrang vor der im Modell: Sie ist die,
-                // unter der der Tag sein Modell sucht.
-                models[id] = model;
-            }
-        }
-
-        return models;
-    }
-
-    /// <summary>Liest ein einzelnes Modell aus seinem <c>extras.model</c>-Block.</summary>
-    private static WorkingTimeModel? ReadModel(JsonElement entry)
-    {
-        if (entry.ValueKind != JsonValueKind.Object
-            || !entry.TryGetProperty(Extras, out JsonElement extras)
-            || extras.ValueKind != JsonValueKind.Object
-            || !extras.TryGetProperty(Model, out JsonElement model)
-            || model.ValueKind != JsonValueKind.Object)
-        {
-            return null;
-        }
-
-        try
-        {
-            return model.Deserialize<WorkingTimeModel>(Http.TanssJson.Options);
-        }
-        catch (JsonException)
-        {
-            // Siehe Kommentar an ReadModels: ein unlesbares Modell kostet die Sollzeit
-            // dieses einen Modells, nicht die Zeiten des Mitarbeiters.
-            return null;
-        }
-    }
 }

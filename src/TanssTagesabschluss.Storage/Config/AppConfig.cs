@@ -212,6 +212,12 @@ public sealed record GapSection
     /// (<c>MONDAY</c> … <c>SUNDAY</c>), wie sie auch TANSS verwendet. Gross- und
     /// Kleinschreibung ist gleichgültig.</para>
     /// </remarks>
+    /// <remarks>
+    /// <b>Leer als Vorgabe, und das ist Absicht.</b> Eine hinterlegte Vorgabe wäre eine
+    /// Vermutung, die niemand je bestätigt — und genau die soll es hier nicht geben. Die
+    /// Konfiguration lädt ohne diese Angabe nicht; die Eingabemaske schlägt Montag bis Freitag
+    /// vor, sodass das Bestätigen einen Klick kostet.
+    /// </remarks>
     public IReadOnlyList<string> WorkDays { get; init; } = [];
 
     /// <summary>
