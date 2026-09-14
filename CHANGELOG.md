@@ -8,6 +8,21 @@ folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## Unveröffentlicht
 
+### Behoben
+
+- **Das Anlegen einer Leistung schlug immer fehl.** TANSS bereitet eine Leistung mit
+  `linkTypeId = 0` und `linkId = 0` vor — aus einem Ticket genauso wie aus einer Firma. Wer
+  diesen Entwurf unverändert anlegt, bekommt HTTP 404 mit `SupportMissingAssignmentException`
+  und dem Satz „Sie müssen eine gültige Zuweisung auswählen!" — eine Prüfung, die TANSS hinter
+  einem 404 versteckt. Ohne gewähltes Gerät wird jetzt die **Firma** zugeordnet; ein Gerät hat
+  weiterhin Vorrang, weil nur damit die Leistung in der Gerätehistorie auftaucht.
+
+### Geändert
+
+- **Die drei Auswahlfelder tragen Platzhalter** — „Firma", „Ticket", „Gerät". Drei leere
+  Kästchen nebeneinander sagen niemandem, welches welches ist. „— ohne Gerät —" steht
+  weiterhin in der Liste, ist aber nicht mehr vorbelegt.
+
 ### Entfernt
 
 - **Das Arbeitszeitmodell wird nicht mehr aus TANSS gelesen.** Es war nicht zu bekommen: Die

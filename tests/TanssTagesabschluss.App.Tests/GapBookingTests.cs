@@ -176,6 +176,62 @@ public sealed class GapBookingTests
         Assert.Equal(99, supports.LastDraft?.LinkId);
     }
 
+    /// <summary>
+    /// Ohne Zuordnung nimmt TANSS die Leistung nicht an.
+    /// </summary>
+    /// <remarks>
+    /// <b>Der teuerste Fehler dieses Dienstes, und er war unsichtbar.</b> Nachgemessen am
+    /// 14.09.2026: <c>POST /api/v1/supports/properties</c> bereitet sowohl aus einem Ticket als
+    /// auch aus einer Firma mit <c>linkTypeId = 0</c> und <c>linkId = 0</c> vor. Wer diesen
+    /// Entwurf unverändert anlegt, bekommt HTTP 404 mit <c>SupportMissingAssignmentException</c>
+    /// und dem Satz „Sie müssen eine gültige Zuweisung auswählen!“ — eine Prüfung, die TANSS
+    /// hinter einem 404 versteckt. Die Leistung wurde damit <b>nie</b> angelegt.
+    /// </remarks>
+    /// <returns>Der abgeschlossene Vorgang.</returns>
+    [Fact]
+    public async Task Ohne_Geraet_wird_die_Firma_zugeordnet()
+    {
+        FakeSupports supports = new();
+        GapBooking booking = new(supports, employeeId: 7);
+
+        await booking.BookAsync(Begin, Hour, "Text", BookingTarget.On(0, 100));
+
+        Assert.Equal(LinkType.Company, supports.LastDraft?.LinkTypeId);
+        Assert.Equal(100, supports.LastDraft?.LinkId);
+    }
+
+    /// <summary>Auch bei einer Buchung auf ein Ticket muss eine Zuordnung stehen.</summary>
+    /// <returns>Der abgeschlossene Vorgang.</returns>
+    [Fact]
+    public async Task Auch_beim_Ticket_wird_zugeordnet_wenn_TANSS_nichts_vorbelegt()
+    {
+        // Gemessen belegt TANSS auch aus einem Ticket ohne Zuordnung vor. Die Firma kommt
+        // dann aus dem vorbereiteten Entwurf.
+        FakeSupports supports = new() { Prefilled = """{"companyId":886}""" };
+        GapBooking booking = new(supports, employeeId: 7);
+
+        await booking.BookAsync(Begin, Hour, "Text", OnTicket);
+
+        Assert.Equal(LinkType.Company, supports.LastDraft?.LinkTypeId);
+        Assert.Equal(886, supports.LastDraft?.LinkId);
+    }
+
+    /// <summary>Ein gewähltes Gerät ist die genauere Zuordnung und hat Vorrang.</summary>
+    /// <returns>Der abgeschlossene Vorgang.</returns>
+    [Fact]
+    public async Task Ein_gewaehltes_Geraet_schlaegt_die_Firma()
+    {
+        FakeSupports supports = new();
+        GapBooking booking = new(supports, employeeId: 7);
+
+        await booking.BookAsync(Begin, Hour, "Drucker getauscht",
+                                new BookingTarget(0, 100, LinkType.Periphery, 17,
+                                                  Internal: false));
+
+        Assert.Equal(LinkType.Periphery, supports.LastDraft?.LinkTypeId);
+        Assert.Equal(17, supports.LastDraft?.LinkId);
+    }
+
     [Fact]
     public async Task Der_Mitarbeiter_kommt_aus_dem_Dienst_und_nicht_aus_der_Vorbelegung()
     {

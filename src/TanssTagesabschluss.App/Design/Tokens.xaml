@@ -23,6 +23,7 @@
     <design:InverseBooleanConverter x:Key="InverseBool" />
     <design:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVis" />
     <design:NullToCollapsedConverter x:Key="NullToCollapsed" />
+    <design:EmptyToVisibleConverter x:Key="EmptyToVisible" />
 
     <!-- Der eingebaute Konverter, hier einmal benannt: Seiten blenden ganze Abschnitte aus,
          solange nichts eingerichtet ist, und sollen dafür nicht je eigene Versionen führen. -->

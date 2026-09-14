@@ -209,11 +209,18 @@
                                                       MinWidth="240" Margin="0,0,8,0"
                                                       ToolTip="Das Ticket, auf das gebucht wird. Ohne Firma sind das die eigenen offenen Tickets." />
 
-                                            <ComboBox ItemsSource="{Binding Devices}"
-                                                      SelectedItem="{Binding SelectedDevice, Mode=TwoWay}"
-                                                      IsEnabled="{Binding CanBook}"
-                                                      MinWidth="200" Margin="0,0,8,0"
-                                                      ToolTip="Das Ger&#228;t, an dem gearbeitet wurde. Nur mit Zuordnung taucht die Leistung in der Ger&#228;tehistorie auf." />
+                                            <Grid Margin="0,0,8,0">
+                                                <ComboBox ItemsSource="{Binding Devices}"
+                                                          SelectedItem="{Binding SelectedDevice, Mode=TwoWay}"
+                                                          IsEnabled="{Binding CanBook}"
+                                                          MinWidth="200"
+                                                          ToolTip="Das Ger&#228;t, an dem gearbeitet wurde. Nur mit Zuordnung taucht die Leistung in der Ger&#228;tehistorie auf." />
+
+                                                <TextBlock Text="Ger&#228;t" IsHitTestVisible="False"
+                                                           Margin="10,0,0,0" VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                                           Visibility="{Binding SelectedDevice, Converter={StaticResource EmptyToVisible}}" />
+                                            </Grid>
 
                                             <CheckBox Content="intern" IsChecked="{Binding IsInternal, Mode=TwoWay}"
                                                       IsEnabled="{Binding CanBook}"

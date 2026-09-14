@@ -260,8 +260,17 @@ public sealed partial class GapRow : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _isInternal;
 
+    /// <summary>
+    /// Das gewählte Gerät; <see langword="null"/>, solange keines gewählt ist.
+    /// </summary>
+    /// <remarks>
+    /// <b>Nicht mit <see cref="DeviceRow.None"/> vorbelegt.</b> Ein vorbelegtes „ohne Gerät“
+    /// verdeckte den Platzhalter, und drei leere Kästchen nebeneinander sagen niemandem,
+    /// welches das Gerät ist. <see cref="DeviceRow.None"/> steht weiterhin in der Liste — für
+    /// den, der ausdrücklich ohne Gerät buchen will.
+    /// </remarks>
     [ObservableProperty]
-    private DeviceRow? _selectedDevice = DeviceRow.None;
+    private DeviceRow? _selectedDevice;
 
     /// <summary>Der Suchbegriff für die Firma.</summary>
     [ObservableProperty]
@@ -638,7 +647,7 @@ public sealed partial class GapRow : ObservableObject, IDisposable
 
         _devicesFor = companyId;
 
-        SelectedDevice = DeviceRow.None;
+        SelectedDevice = null;
         Devices.Clear();
         Devices.Add(DeviceRow.None);
 

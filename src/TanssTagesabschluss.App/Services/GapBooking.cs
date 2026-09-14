@@ -243,10 +243,29 @@ public sealed class GapBooking
 
         if (target.HasAssignment)
         {
-            // Nur wenn der Techniker wirklich ein Geraet gewaehlt hat. Was TANSS beim
-            // Vorbereiten selbst gesetzt hat, bleibt sonst stehen - aus einem Ticket, das an
-            // einem Geraet haengt, kommt die Zuordnung bereits mit.
+            // Ein gewaehltes Geraet ist die genaueste Zuordnung: Nur mit ihr taucht die
+            // Leistung in der Geraetehistorie auf.
             draft.AssignTo(target.LinkTypeId, target.LinkId);
+        }
+        else if (draft.LinkTypeId <= 0 || draft.LinkId <= 0)
+        {
+            // --- Ohne Zuordnung nimmt TANSS die Leistung nicht an. ------------------------
+            // Nachgemessen am 14.09.2026: POST /api/v1/supports/properties bereitet sowohl aus
+            // einem Ticket als auch aus einer Firma mit linkTypeId = 0 und linkId = 0 vor. Wer
+            // diesen Entwurf unveraendert anlegt, bekommt HTTP 404 mit
+            // SupportMissingAssignmentException und dem Satz "Sie muessen eine gueltige
+            // Zuweisung auswaehlen!" -- eine Pruefung, die TANSS hinter einem 404 versteckt.
+            //
+            // Die Firma ist die Zuordnung, die immer trägt: Sie steht im vorbereiteten
+            // Entwurf, und ohne sie gaebe es ohnehin keinen Stundensatz. Ein Geraet waere
+            // genauer, aber keines ist gewaehlt -- und raten waere hier die Historie eines
+            // fremden Geraets.
+            int companyId = draft.CompanyId > 0 ? draft.CompanyId : target.CompanyId;
+
+            if (companyId > 0)
+            {
+                draft.AssignTo(LinkType.Company, companyId);
+            }
         }
 
         // --- Anlegen. Genau ein Versuch. --------------------------------------------------
