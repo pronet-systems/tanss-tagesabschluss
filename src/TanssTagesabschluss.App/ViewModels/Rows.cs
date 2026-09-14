@@ -88,27 +88,17 @@ public sealed class CompanyRow
     /// desselben Hauses. Deshalb stehen Kundennummer und Rolle daneben: Sie sind es, die den
     /// Unterschied ausmachen, und sie sind es auch, die auf der Rechnung landen.
     /// </remarks>
-    /// <returns>Etwa <c>Musterfirma GmbH · 10235 · Zentrale · 59757 Arnsberg</c>.</returns>
+    /// <returns>Etwa <c>10235 Wrede GmbH Softwarekonzepte (Zentrale)</c>.</returns>
     public override string ToString()
     {
-        List<string> parts = [Name];
+        // Die Kundennummer zuerst: Sie ist die Zahl, die auf der Rechnung steht und im
+        // Gespraech genannt wird -- und die Zeile, die zuerst gelesen wird, soll die sein, die
+        // unterscheidet. Der Ort faellt weg; er stand nur da, solange die Nummer hinten stand.
+        string head = string.IsNullOrWhiteSpace(CustomerNumber)
+            ? Name
+            : CustomerNumber + " " + Name;
 
-        if (!string.IsNullOrWhiteSpace(CustomerNumber))
-        {
-            parts.Add(CustomerNumber);
-        }
-
-        if (!string.IsNullOrWhiteSpace(Role))
-        {
-            parts.Add(Role);
-        }
-
-        if (!string.IsNullOrWhiteSpace(Place))
-        {
-            parts.Add(Place);
-        }
-
-        return string.Join(" · ", parts);
+        return string.IsNullOrWhiteSpace(Role) ? head : head + " (" + Role + ")";
     }
 }
 
@@ -287,6 +277,17 @@ public sealed partial class GapRow : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _isSearching;
 
+    /// <summary>
+    /// Steht die Firmenliste offen?
+    /// </summary>
+    /// <remarks>
+    /// <b>Ohne diesen Wert bleibt die Suche unsichtbar.</b> Ein beschreibbares Auswahlfeld
+    /// klappt von sich aus nur beim Klick auf den Pfeil auf — wer tippt, sieht die gefundenen
+    /// Firmen nie und hält die Suche für kaputt. Genau so ist es gemeldet worden.
+    /// </remarks>
+    [ObservableProperty]
+    private bool _isCompanyListOpen;
+
     /// <summary>Baut die Zeile.</summary>
     /// <param name="gap">Die Lücke.</param>
     /// <param name="catalog">Woher Firmen, Tickets und Geräte kommen.</param>
@@ -417,6 +418,13 @@ public sealed partial class GapRow : ObservableObject, IDisposable
             if (Companies.Count == 1 && Companies[0].Selectable)
             {
                 SelectedCompany = Companies[0];
+                IsCompanyListOpen = false;
+            }
+            else
+            {
+                // Aufklappen, sobald es etwas zu sehen gibt -- und nur dann. Eine leere Liste
+                // aufzuklappen ergaebe ein graues Kaestchen ueber dem Feld.
+                IsCompanyListOpen = Companies.Count > 0;
             }
         }
         catch (OperationCanceledException)
@@ -447,6 +455,7 @@ public sealed partial class GapRow : ObservableObject, IDisposable
         CompanyQuery = string.Empty;
         Companies.Clear();
         CompanyStatus = null;
+        IsCompanyListOpen = false;
     }
 
     /// <inheritdoc />
@@ -514,6 +523,7 @@ public sealed partial class GapRow : ObservableObject, IDisposable
             _typing = null;
             Companies.Clear();
             CompanyStatus = null;
+            IsCompanyListOpen = false;
             return;
         }
 

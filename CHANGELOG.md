@@ -8,6 +8,15 @@ folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## Unveröffentlicht
 
+### Geändert
+
+- **Die Firmenliste klappt beim Tippen von selbst auf**, sobald es etwas zu sehen gibt — und
+  bleibt zu, solange nichts gefunden wurde.
+- **Neues Format in der Firmenliste:** erst die Kundennummer, dann der Name, dann in Klammern
+  Zentrale oder Filiale — etwa `10235 Wrede GmbH Softwarekonzepte (Zentrale)`. Die
+  Kundennummer steht vorn, weil sie die Zahl ist, die auf der Rechnung steht und im Gespräch
+  genannt wird.
+
 ### Neu
 
 - **Lücken entstehen jetzt auch vor dem Einstempeln.** Wer um 11:08 stempelt, obwohl der

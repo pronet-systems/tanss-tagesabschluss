@@ -181,8 +181,9 @@
                                                       Text="{Binding CompanyQuery, UpdateSourceTrigger=PropertyChanged}"
                                                       ItemsSource="{Binding Companies}"
                                                       SelectedItem="{Binding SelectedCompany, Mode=TwoWay}"
+                                                      IsDropDownOpen="{Binding IsCompanyListOpen, Mode=TwoWay}"
                                                       IsEnabled="{Binding CanBook}"
-                                                      MinWidth="300" Margin="0,0,8,0"
+                                                      MinWidth="320" Margin="0,0,8,0"
                                                       ToolTip="Firma suchen &#8212; ab drei Zeichen sucht das Feld von selbst. Die Auswahl bestimmt, welche Tickets und Ger&#228;te daneben zur Wahl stehen.">
                                                 <ComboBox.ItemContainerStyle>
                                                     <Style TargetType="ComboBoxItem">
