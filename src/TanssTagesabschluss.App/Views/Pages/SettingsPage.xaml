@@ -344,13 +344,18 @@
                     <StackPanel Orientation="Horizontal" design:Spacing.Size="12">
                         <ui:TextBlock Text="Mindestdauer (Minuten)" VerticalAlignment="Center"
                                       FontSize="12" />
+                        <!-- Grenzen am Bedienelement und nicht erst in der Prüfung: Sonst
+                             tippt jemand 500, drückt Speichern und bekommt eine Absage für
+                             etwas, das das Feld ihm gerade angeboten hat. -->
                         <ui:NumberBox Value="{Binding MinimumMinutes, Mode=TwoWay}" MinWidth="100"
+                                      Minimum="1" Maximum="240"
                                       ToolTip="Kürzere Zeitfenster stehen nicht in der Liste. 15 Minuten ist die übliche Abrechnungseinheit." />
 
                         <ui:TextBlock Text="Rückblick (Tage)" VerticalAlignment="Center"
                                       FontSize="12" />
                         <ui:NumberBox Value="{Binding HistoryDays, Mode=TwoWay}" MinWidth="100"
-                                      ToolTip="Wie weit der Überblick zurückreicht." />
+                                      Minimum="1" Maximum="365"
+                                      ToolTip="Wie weit der Überblick zurückreicht — 1 bis 365 Tage. Je länger, desto länger lädt er. Derselbe Wert lässt sich auch im Überblick oben rechts umstellen." />
                     </StackPanel>
                 </StackPanel>
             </Border>

@@ -145,13 +145,18 @@ public static class ConfigValidator
                 + "Stunden bliebe von der Prüfung nichts übrig.");
         }
 
-        if (gaps.HistoryDays is < 1 or > 90)
+        // Die Obergrenze lag einmal bei 90 Tagen, mit der Begruendung, an aelteren Tagen
+        // liesse sich ohnehin nichts mehr nachtragen. Das stimmt so nicht: Eine vergessene
+        // Leistung faellt oft erst bei der Quartalsabrechnung auf, und dann will jemand ein
+        // ganzes Quartal oder ein Jahr durchsehen. Ein Jahr ist die neue Grenze - darueber
+        // hinaus geht es nicht mehr um Nachtragen, sondern um Statistik.
+        if (gaps.HistoryDays is < 1 or > 365)
         {
             problems.Add(
                 string.Create(CultureInfo.CurrentCulture,
-                    $"gaps.history_days ({gaps.HistoryDays}) liegt ausserhalb von 1 bis 90.")
-                + " Ein längerer Rückblick lädt bei jedem Öffnen mehrere Monate aus TANSS, ohne "
-                + "dass sich an so alten Tagen noch etwas nachtragen liesse.");
+                    $"gaps.history_days ({gaps.HistoryDays}) liegt ausserhalb von 1 bis 365.")
+                + " Ein langer Rückblick lädt bei jedem Öffnen entsprechend viele Tage aus "
+                + "TANSS; die Übersicht braucht dann spürbar länger.");
         }
     }
 

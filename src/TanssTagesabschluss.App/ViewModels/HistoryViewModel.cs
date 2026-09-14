@@ -6,6 +6,8 @@ using CommunityToolkit.Mvvm.Input;
 using TanssTagesabschluss.Api;
 using TanssTagesabschluss.Api.Diagnostics;
 using TanssTagesabschluss.App.Runtime;
+using TanssTagesabschluss.Storage;
+using TanssTagesabschluss.Storage.Config;
 using TanssTagesabschluss.Workday.Model;
 
 namespace TanssTagesabschluss.App.ViewModels;
@@ -24,6 +26,8 @@ namespace TanssTagesabschluss.App.ViewModels;
 public sealed partial class HistoryViewModel : ObservableObject
 {
     private readonly IRuntimeContext _context;
+    private readonly IConfigStore _store;
+    private readonly Func<bool> _reload;
 
     [ObservableProperty]
     private bool _isLoading;
@@ -39,10 +43,87 @@ public sealed partial class HistoryViewModel : ObservableObject
 
     /// <summary>Baut das Ansichtsmodell.</summary>
     /// <param name="context">Der Zugang zu Zustand und Zusammenbau.</param>
-    public HistoryViewModel(IRuntimeContext context)
+    /// <param name="store">Die Ablage der Konfiguration — für den Rückblick.</param>
+    /// <param name="reload">Baut die Verbindung nach einer Änderung neu auf.</param>
+    public HistoryViewModel(IRuntimeContext context, IConfigStore store, Func<bool> reload)
     {
         ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(store);
+        ArgumentNullException.ThrowIfNull(reload);
+
         _context = context;
+        _store = store;
+        _reload = reload;
+        _historyDays = context.Composition?.Config.Gaps.HistoryDays ?? 14;
+    }
+
+    /// <summary>
+    /// Die Zeiträume, die zur Wahl stehen.
+    /// </summary>
+    /// <remarks>
+    /// <b>Feste Stufen statt eines Zahlenfelds.</b> Der Unterschied zwischen 43 und 45 Tagen
+    /// interessiert niemanden; der zwischen zwei Wochen und einem Jahr sehr wohl. Und jede
+    /// Stufe kostet Ladezeit — eine Liste zwingt dazu, das vor der Wahl zu sehen.
+    /// </remarks>
+    public IReadOnlyList<int> RangeChoices { get; } = [7, 14, 30, 60, 90, 180, 365];
+
+    /// <summary>
+    /// Wie viele Tage rückwärts die Übersicht zeigt.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Dieselbe Einstellung wie unter Einstellungen → „Was als Lücke gilt“.</b> Sie
+    /// steht zusätzlich hier, weil hier die Frage aufkommt: Wer auf eine Liste sieht, die zu
+    /// kurz ist, will sie an Ort und Stelle verlängern und nicht erst eine Seite weiter
+    /// suchen.</para>
+    /// <para><b>Die Änderung wird sofort gespeichert.</b> Ein Rückblick, der nach dem nächsten
+    /// Start wieder auf vierzehn Tagen steht, wäre eine Falle: Man sähe weniger als beim
+    /// letzten Mal und hielte die fehlenden Tage für erledigt.</para>
+    /// </remarks>
+    public int HistoryDays
+    {
+        get => _historyDays;
+        set
+        {
+            if (value <= 0 || value == _historyDays)
+            {
+                return;
+            }
+
+            SetProperty(ref _historyDays, value);
+            Persist(value);
+        }
+    }
+
+    private int _historyDays;
+
+    /// <summary>
+    /// Schreibt den Rückblick in die Konfiguration und lädt neu.
+    /// </summary>
+    /// <remarks>
+    /// <b>Wirft nicht.</b> Lässt sich nicht schreiben, gilt der neue Wert wenigstens für diese
+    /// Sitzung — die Liste zeigt dann, was gewünscht war, und die Meldung sagt, dass es den
+    /// Neustart nicht überlebt. Das ist mehr wert als eine Seite, die auf einen Schreibfehler
+    /// hin gar nichts mehr tut.
+    /// </remarks>
+    private void Persist(int days)
+    {
+        if (_context.Composition?.Config is not { } config)
+        {
+            return;
+        }
+
+        try
+        {
+            _store.Save(config with { Gaps = config.Gaps with { HistoryDays = days } });
+            _ = _reload();
+        }
+        catch (ConfigException ex)
+        {
+            Error = "Der Rückblick liess sich nicht speichern; für diese Sitzung gilt er "
+                + "trotzdem. " + ex.Message;
+        }
+
+        _ = ReloadAsync();
     }
 
     /// <summary>Meldet, dass ein Tag zur Bearbeitung gewählt wurde.</summary>

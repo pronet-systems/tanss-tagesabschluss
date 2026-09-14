@@ -316,13 +316,7 @@ public sealed class ConnectionCheck
                 + "Arbeitszeitmodelle nichts bekannt.");
         }
 
-        int[] named = [.. recording.Days
-            .Select(day => day.WorkingTimeModelId)
-            .Where(id => id > 0)
-            .Distinct()
-            .Order()];
-
-        if (named.Length == 0)
+        if (recording.EmployeeModelId <= 0)
         {
             // Der haeufigere und harmlosere Fall: In TANSS ist diesem Mitarbeiter kein Modell
             // zugeordnet. Das Werkzeug kann daran nichts aendern und tut auch nicht so.
@@ -330,7 +324,7 @@ public sealed class ConnectionCheck
             // Ueberladung ueber den Handler der Zeichenkettenschablone, und ein "+" dahinter
             // schiebt eine gewoehnliche Zeichenkette unter -- CS1620, siehe .editorconfig.
             string measured = string.Create(CultureInfo.CurrentCulture,
-                $"Alle {recording.Days.Count} gelesenen Tage tragen die Modellkennung 0 — Mitarbeiter {recording.Days[0].EmployeeId} ist in TANSS kein Arbeitszeitmodell zugeordnet.");
+                $"GET /api/v1/employees/{recording.Days[0].EmployeeId} führt workingHourModelId = 0 — diesem Mitarbeiter ist in TANSS kein Arbeitszeitmodell zugeordnet.");
 
             return new CheckRow("Arbeitszeitmodell", CheckLevel.Warn,
                 measured + " Ohne Modell gilt Montag bis Freitag als Arbeitstag; das steht dann "
@@ -339,10 +333,10 @@ public sealed class ConnectionCheck
         }
 
         return new CheckRow("Arbeitszeitmodell", CheckLevel.Warn,
-            $"Die Tage nennen Modell {string.Join(", ", named)}, der meta-Block der Antwort "
-            + "führt dazu aber keinen Wochenplan (erwartet unter "
-            + "meta.listProperties.workingTimeModels). Ohne Wochenplan gilt Montag bis Freitag "
-            + "als Arbeitstag — an einem Samstag im Schichtdienst wäre das falsch.");
+            string.Create(CultureInfo.CurrentCulture,
+                $"Der Mitarbeiter trägt Modell {recording.EmployeeModelId}, die Zeitauswertung liefert dazu aber keinen Wochenplan (erwartet unter meta.listProperties.workingTimeModels).")
+            + " Ohne Wochenplan gilt Montag bis Freitag als Arbeitstag — an einem Samstag im "
+            + "Schichtdienst wäre das falsch.");
     }
 
     /// <summary>Der Befund zur eigenen Firma — die Annahme, an der das Bundesland hängt.</summary>

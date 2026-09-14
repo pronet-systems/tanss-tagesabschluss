@@ -165,13 +165,59 @@
                                                     VerticalScrollBarVisibility="Auto"
                                                     IsEnabled="{Binding CanBook}" />
 
-                                        <!-- Zeile 3: Ziel und Schaltflächen -->
+                                        <!-- Zeile 3: Die Firma. Sie steht VOR Ticket und
+                                             Gerät, weil sie beide einschränkt: Ist eine Firma
+                                             gewählt, stehen daneben nur noch deren offene
+                                             Tickets und deren Geräte. Ohne Firma bleibt es bei
+                                             den eigenen Tickets des Technikers - dem
+                                             Normalfall, der keinen Klick kosten soll. -->
+                                        <WrapPanel>
+                                            <ui:TextBox Text="{Binding CompanyQuery, UpdateSourceTrigger=PropertyChanged}"
+                                                        PlaceholderText="Firma suchen …"
+                                                        MinWidth="200" Margin="0,0,8,0"
+                                                        IsEnabled="{Binding CanBook}"
+                                                        KeyDown="OnCompanySearchKeyDown"
+                                                        ToolTip="Mindestens drei Zeichen. Die Eingabetaste sucht." />
+
+                                            <ui:Button Icon="{ui:SymbolIcon Search24}"
+                                                       Content="Suchen"
+                                                       Command="{Binding SearchCompaniesCommand}"
+                                                       Margin="0,0,8,0" />
+
+                                            <ComboBox ItemsSource="{Binding Companies}"
+                                                      SelectedItem="{Binding SelectedCompany, Mode=TwoWay}"
+                                                      IsEnabled="{Binding CanBook}"
+                                                      MinWidth="260" Margin="0,0,8,0"
+                                                      ToolTip="Die Firma, auf die gebucht wird. Sie bestimmt, welche Tickets und Geräte daneben zur Wahl stehen.">
+                                                <ComboBox.ItemContainerStyle>
+                                                    <Style TargetType="ComboBoxItem">
+                                                        <!-- Gesperrte Firmen bleiben sichtbar,
+                                                             aber unwählbar: Sie wegzulassen
+                                                             hiesse, dass jemand sucht und nicht
+                                                             findet, ohne zu erfahren, warum. -->
+                                                        <Setter Property="IsEnabled" Value="{Binding Selectable}" />
+                                                    </Style>
+                                                </ComboBox.ItemContainerStyle>
+                                            </ComboBox>
+
+                                            <ui:Button Icon="{ui:SymbolIcon Dismiss24}"
+                                                       ToolTip="Firmenauswahl zurücknehmen — daneben stehen dann wieder die eigenen Tickets."
+                                                       Command="{Binding ClearCompanyCommand}"
+                                                       Visibility="{Binding HasCompany, Converter={StaticResource BoolToVis}}" />
+                                        </WrapPanel>
+
+                                        <ui:TextBlock Text="{Binding CompanyStatus}" TextWrapping="Wrap"
+                                                      FontSize="12"
+                                                      Visibility="{Binding CompanyStatus, Converter={StaticResource NullToCollapsed}}"
+                                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+
+                                        <!-- Zeile 4: Ziel und Schaltflächen -->
                                         <WrapPanel>
                                             <ComboBox ItemsSource="{Binding Tickets}"
                                                       SelectedItem="{Binding SelectedTicket, Mode=TwoWay}"
                                                       IsEnabled="{Binding CanBook}"
                                                       MinWidth="240" Margin="0,0,8,0"
-                                                      ToolTip="Das Ticket, auf das gebucht wird." />
+                                                      ToolTip="Das Ticket, auf das gebucht wird. Ohne Firma sind das die eigenen offenen Tickets." />
 
                                             <ComboBox ItemsSource="{Binding Devices}"
                                                       SelectedItem="{Binding SelectedDevice, Mode=TwoWay}"

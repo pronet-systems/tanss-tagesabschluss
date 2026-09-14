@@ -8,6 +8,26 @@ folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## Unveröffentlicht
 
+### Neu
+
+- **Firmensuche in der Leistungserfassung.** Zu jeder Lücke lässt sich eine Firma suchen und
+  auswählen. Ist eine gewählt, stehen daneben **nur noch deren** offene Tickets und **nur noch
+  deren** Geräte — wer für einen Kollegen einspringt, findet dessen Ticket sonst nicht, weil es
+  ihm nicht gehört. Ohne Firma bleibt es bei den eigenen offenen Tickets; der Normalfall kostet
+  keinen Klick. Gebucht werden kann auch auf die Firma allein, ohne Ticket.
+- **Der Rückblick ist auch im Überblick einstellbar** — dort, wo die Frage aufkommt. Sieben
+  Tage bis ein Jahr, sofort gespeichert.
+
+### Geändert
+
+- **Der Rückblick reicht jetzt bis 365 Tage** statt bis 90. Die alte Grenze stand unter der
+  Annahme, an älteren Tagen liesse sich ohnehin nichts mehr nachtragen — das stimmt so nicht:
+  Eine vergessene Leistung fällt oft erst bei der Quartalsabrechnung auf.
+- **Das Arbeitszeitmodell wird am Mitarbeiter gelesen, nicht am Tag.** Es steht in
+  `GET /api/v1/employees/{id}` unter `workingHourModelId` und gilt für alle seine Tage. Der Tag
+  der Zeitauswertung führt zwar ein eigenes Feld, das aber auf unserer Instanz durchgängig `0`
+  ist. Trägt ein Tag doch eine eigene Kennung, hat sie weiterhin Vorrang.
+
 ### Behoben
 
 - **„Verbindung prüfen" schien nichts zu tun.** Sie tat etwas — nur eine halbe Minute lang

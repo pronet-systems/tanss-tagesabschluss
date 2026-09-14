@@ -23,6 +23,40 @@ public sealed class ConfigValidatorTests
     [Fact]
     public void Eine_vollstaendige_Konfiguration_geht_durch() => Valid.Validate();
 
+    /// <summary>
+    /// Der Rückblick darf bis zu einem Jahr reichen.
+    /// </summary>
+    /// <remarks>
+    /// Die Grenze lag einmal bei 90 Tagen, mit der Begründung, an älteren Tagen liesse sich
+    /// ohnehin nichts mehr nachtragen. Das stimmt so nicht: Eine vergessene Leistung fällt oft
+    /// erst bei der Quartalsabrechnung auf, und dann will jemand ein ganzes Quartal oder ein
+    /// Jahr durchsehen.
+    /// </remarks>
+    /// <param name="days">Der zu prüfende Rückblick.</param>
+    [Theory]
+    [InlineData(1)]
+    [InlineData(90)]
+    [InlineData(180)]
+    [InlineData(365)]
+    public void Ein_Rueckblick_bis_zu_einem_Jahr_geht_durch(int days) =>
+        (Valid with { Gaps = Valid.Gaps with { HistoryDays = days } }).Validate();
+
+    /// <param name="days">Der zu prüfende Rückblick.</param>
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(366)]
+    public void Ein_Rueckblick_ausserhalb_von_1_bis_365_wird_beanstandet(int days)
+    {
+        AppConfig config = Valid with { Gaps = Valid.Gaps with { HistoryDays = days } };
+
+        ConfigValidationException error =
+            Assert.Throws<ConfigValidationException>(() => config.Validate());
+
+        Assert.Contains(error.Problems,
+            problem => problem.Contains("gaps.history_days", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void Eine_Adresse_ohne_backend_wird_beanstandet()
     {

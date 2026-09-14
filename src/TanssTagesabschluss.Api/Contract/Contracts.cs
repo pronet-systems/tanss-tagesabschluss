@@ -173,9 +173,16 @@ public interface ITimestampRepository
 /// </remarks>
 /// <param name="Days">Die Tage, aufsteigend nach Datum.</param>
 /// <param name="Models">Die Arbeitszeitmodelle, geschlüsselt nach ihrer Kennung.</param>
+/// <param name="EmployeeModelId">
+/// Das Arbeitszeitmodell <b>dieses Mitarbeiters</b> aus
+/// <c>employees/{id}.workingHourModelId</c>; <c>0</c>, wenn ihm keines zugeordnet ist oder die
+/// Abfrage nicht getragen hat. Es stammt als Einziges hier <b>nicht</b> aus der Zeitauswertung
+/// — weil es dort nicht steht.
+/// </param>
 public sealed record TimeRecording(
     IReadOnlyList<TimestampDay> Days,
-    IReadOnlyDictionary<int, WorkingTimeModel> Models)
+    IReadOnlyDictionary<int, WorkingTimeModel> Models,
+    int EmployeeModelId = 0)
 {
     /// <summary>Ein leeres Ergebnis.</summary>
     public static TimeRecording Empty { get; } = new([], new Dictionary<int, WorkingTimeModel>());
@@ -186,15 +193,26 @@ public sealed record TimeRecording(
     public TimestampDay? DayOn(DateOnly day) => Days.FirstOrDefault(entry => entry.Date == day);
 
     /// <summary>Das Arbeitszeitmodell eines Tages; <see langword="null"/>, wenn keines vorliegt.</summary>
+    /// <remarks>
+    /// <para><b>Das Modell hängt am Mitarbeiter, nicht am Tag</b> — <see cref="EmployeeModelId"/>
+    /// kommt aus <c>employees/{id}.workingHourModelId</c> und gilt für alle seine Tage. Der Tag
+    /// führt zwar ein eigenes <c>workingTimeModelId</c> mit, aber nachgemessen am 14.09.2026
+    /// steht dort durchgängig <c>0</c>.</para>
+    /// <para><b>Trägt der Tag trotzdem eine Kennung, hat sie Vorrang.</b> Nicht aus Zutrauen,
+    /// sondern weil das Feld existiert: Träfe eine Instanz die Unterscheidung wirklich je Tag,
+    /// wäre die Zahl am Tag die genauere — und sie zu übergehen hiesse, an einem
+    /// Schichtwechsel die falsche Sollzeit anzunehmen. Auf der gemessenen Instanz greift dieser
+    /// Zweig nie.</para>
+    /// </remarks>
     /// <param name="day">Der Tag.</param>
     /// <returns>Das Modell, oder <see langword="null"/>.</returns>
     public WorkingTimeModel? ModelFor(TimestampDay day)
     {
         ArgumentNullException.ThrowIfNull(day);
 
-        return Models.TryGetValue(day.WorkingTimeModelId, out WorkingTimeModel? model)
-            ? model
-            : null;
+        int id = day.WorkingTimeModelId > 0 ? day.WorkingTimeModelId : EmployeeModelId;
+
+        return Models.TryGetValue(id, out WorkingTimeModel? model) ? model : null;
     }
 }
 

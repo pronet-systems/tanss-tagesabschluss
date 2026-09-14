@@ -54,12 +54,22 @@ public static class TanssRoutes
     public const string Timestamps = V1Prefix + "/timestamps";
 
     /// <summary>
-    /// Zeitstempel <b>samt Auswertung</b>: je Tag die Abschnitte nach Art gruppiert.
+    /// Die <b>rohen</b> Zeitstempel — schnell, aber ohne Auswertung. <b>Bewusst unbenutzt.</b>
     /// </summary>
     /// <remarks>
-    /// Liefert zusätzlich zu den rohen Stempeln das Arbeitszeitmodell des Tages und die
-    /// Abschnitte unter <c>types</c>. Für dieses Werkzeug die zweitwichtigste Route überhaupt;
-    /// die wichtigste ist <see cref="TimestampStatistics"/>.
+    /// <para><b>Verlockend und trotzdem nicht der Weg dieses Werkzeugs.</b> Nachgemessen am
+    /// 14.09.2026 antwortet diese Route in rund 100 Millisekunden, wo
+    /// <see cref="TimestampStatistics"/> rund dreizehn Sekunden braucht — hundertmal schneller
+    /// bei scheinbar gleicher Form.</para>
+    /// <para><b>Der Unterschied zeigt sich erst an einem Urlaubstag.</b> Über dieselbe
+    /// Augustwoche geprüft liefert <see cref="TimestampStatistics"/> je Tag
+    /// <c>types: VACATION, DOCUMENTED_SUPPORT</c>; diese Route liefert dieselben Tage
+    /// <b>leer</b> — ohne <c>types</c> und sogar ohne <c>weekDay</c>. Sie kennt nur, was
+    /// gestempelt wurde, nicht was TANSS daraus gerechnet hat.</para>
+    /// <para>Wer hier umstellt, um die dreizehn Sekunden zu sparen, verliert die Erkennung von
+    /// Urlaub und Krankheit <b>und</b> die Gegenprobe <c>DOCUMENTED_SUPPORT</c> — und meldet
+    /// dann Lücken an Tagen, an denen jemand am Strand lag. Deshalb steht die Route hier mit
+    /// Begründung, statt zu fehlen und beim nächsten Mal wieder verlockend zu wirken.</para>
     /// </remarks>
     public const string TimestampInfo = V1Prefix + "/timestamps/info";
 
@@ -233,6 +243,27 @@ public static class TanssRoutes
     /// </remarks>
     public const string OwnState = V1Prefix + "/employees/ownState";
 
+    /// <summary>
+    /// Ein einzelner Mitarbeiter — und damit <b>sein</b> Arbeitszeitmodell.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Das Arbeitszeitmodell hängt am Menschen, nicht am Tag.</b> Die Antwort trägt
+    /// <c>content.workingHourModelId</c>: eine Zahl je Mitarbeiter, gültig für alle seine Tage.
+    /// Der Tag der Zeitauswertung führt zwar ein Feld <c>workingTimeModelId</c> mit, das aber
+    /// auf der gemessenen Instanz durchgängig <c>0</c> ist.</para>
+    /// <para><b>Nachgemessen am 14.09.2026</b> gegen 10.10.0: HTTP 200,
+    /// <c>workingHourModelId</c> vorhanden. Für Mitarbeiter 1 steht dort <c>0</c> — ihm ist
+    /// kein Modell zugeordnet.</para>
+    /// <para><b>Nicht der Weg dorthin ist <c>/api/v1/workingHours/client</c>:</b> Diese Route
+    /// antwortet mit demselben Token 403 — genau wie ein frei erfundener Pfad unter
+    /// <c>/api/v1/</c>, und im ausgelieferten Archiv bildet kein Controller sie ab. Dort liegen
+    /// nur die Datenklassen (<c>TnsWorkingHoursClient</c> und Verwandte) ohne
+    /// <c>@RequestMapping</c>.</para>
+    /// </remarks>
+    /// <param name="employeeId">Die Mitarbeiterkennung.</param>
+    /// <returns>Der Pfad.</returns>
+    public static string EmployeeById(int employeeId) =>
+        string.Create(CultureInfo.InvariantCulture, $"{V1Prefix}/employees/{employeeId}");
     public const string OwnCompanyEmployees = ErpPrefix + "/companies/employees";
 
     /// <summary>Die Techniker der Instanz. Liegt auf <c>tanss.x</c>.</summary>

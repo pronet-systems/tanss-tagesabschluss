@@ -241,14 +241,21 @@ public sealed partial class DayViewModel : ObservableObject
     {
         Analysis = analysis;
 
+        // Einer fuer alle Zeilen: Die Suchfunktion ist zustandslos, und der Zwischenspeicher
+        // der Geraete liegt ohnehin hier. Ein Katalog je Luecke brachte nichts ausser Arbeit.
+        GapCatalog catalog = new(
+            tickets,
+            (query, ct) => composition.Companies.SearchAsync(query, ct),
+            (companyId, ct) => composition.Tickets.ListForCompanyAsync(companyId, ct),
+            (companyId, ct) => DevicesAsync(composition, companyId, ct));
+
         Gaps.Clear();
         foreach (Gap gap in analysis.Gaps)
         {
             Gaps.Add(new GapRow(
                 gap,
-                tickets,
+                catalog,
                 (row, ct) => BookAsync(composition, row, ct),
-                (companyId, ct) => DevicesAsync(composition, companyId, ct),
                 _ai is null ? null : (text, task, ct) => ReviseAsync(text, task, ct)));
         }
 
@@ -269,15 +276,23 @@ public sealed partial class DayViewModel : ObservableObject
 
     /// <summary>Trägt eine Lücke nach.</summary>
     /// <remarks>
-    /// <b>Die Firma kommt aus dem gewählten Ticket und nicht aus dem Vorschlag der Lücke.</b>
-    /// Das Ticket ist das, was der Techniker gerade bestätigt hat; der Vorschlag war eine
-    /// Vermutung aus den Nachbarinnen.
+    /// <para><b>Die Reihenfolge, in der die Firma bestimmt wird, ist eine Rangfolge nach
+    /// Verlässlichkeit.</b> Zuerst das gewählte Ticket — das ist das, was der Techniker gerade
+    /// bestätigt hat, und über das Ticket findet TANSS auch Vertrag und Stundensatz. Dann die
+    /// von Hand gesuchte Firma: ebenfalls bestätigt, nur ohne Vertragsbezug. Erst zuletzt der
+    /// Vorschlag der Lücke, und der ist eine Vermutung aus den Nachbarinnen.</para>
+    /// <para><see cref="GapRow.EffectiveCompanyId"/> hält die ersten beiden Stufen zusammen —
+    /// dieselbe Zahl entscheidet dort, welche Geräte zur Wahl stehen. Zwei getrennte
+    /// Rechnungen für dieselbe Frage liefen irgendwann auseinander, und dann stünde in der
+    /// Auswahl das Gerät des einen Kunden und auf der Rechnung der andere.</para>
     /// </remarks>
     private static async Task<BookingResult> BookAsync(RuntimeComposition composition, GapRow row,
                                                        CancellationToken ct)
     {
         int ticketId = row.SelectedTicket?.Id ?? 0;
-        int companyId = row.SelectedTicket?.CompanyId ?? row.Gap.SuggestedCompanyId;
+        int companyId = row.EffectiveCompanyId > 0
+            ? row.EffectiveCompanyId
+            : row.Gap.SuggestedCompanyId;
         DeviceRow device = row.SelectedDevice ?? DeviceRow.None;
 
         BookingTarget target = new(ticketId, companyId, device.LinkTypeId, device.LinkId,

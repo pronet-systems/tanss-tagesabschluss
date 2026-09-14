@@ -3,12 +3,53 @@ using System.Globalization;
 using System.Runtime.Versioning;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using TanssTagesabschluss.Api;
+using TanssTagesabschluss.Api.Diagnostics;
 using TanssTagesabschluss.Api.Model;
 using TanssTagesabschluss.App.Ai;
 using TanssTagesabschluss.App.Services;
 using TanssTagesabschluss.Workday.Model;
 
 namespace TanssTagesabschluss.App.ViewModels;
+
+/// <summary>Eine Firma in der Auswahl beim Nachtragen.</summary>
+/// <remarks>
+/// <para><b>Der Name allein genügt nicht.</b> Nachgemessen gegen eine Instanz stand derselbe
+/// Firmenname fünfmal mit verschiedenen Kennungen in der Trefferliste. Deshalb steht neben dem
+/// Namen, was die Dubletten auseinanderhält: Kundennummer, Postleitzahl, Ort.</para>
+/// <para><b>Gesperrte Firmen bleiben sichtbar, aber unwählbar.</b> Sie wegzulassen hiesse, dass
+/// jemand sucht und nicht findet, ohne zu erfahren, warum.</para>
+/// </remarks>
+public sealed class CompanyRow
+{
+    /// <summary>Baut die Zeile aus einer Firma.</summary>
+    /// <param name="company">Die Firma.</param>
+    public CompanyRow(Company company)
+    {
+        ArgumentNullException.ThrowIfNull(company);
+
+        Id = company.Id;
+        Name = string.IsNullOrWhiteSpace(company.Name) ? "(ohne Namen)" : company.Name;
+        Distinguisher = company.Distinguisher;
+        Selectable = company.Selectable;
+    }
+
+    /// <summary>Die <c>companyId</c>.</summary>
+    public int Id { get; }
+
+    /// <summary>Der Firmenname.</summary>
+    public string Name { get; }
+
+    /// <summary>Kundennummer, Postleitzahl, Ort — was Dubletten auseinanderhält.</summary>
+    public string Distinguisher { get; }
+
+    /// <summary>Darf auf diese Firma gebucht werden?</summary>
+    public bool Selectable { get; }
+
+    /// <summary>Name und Unterscheidungsmerkmal in einer Zeile.</summary>
+    /// <returns>Etwa <c>Musterfirma GmbH (4711 · 59757 Arnsberg)</c>.</returns>
+    public override string ToString() => $"{Name} ({Distinguisher})";
+}
 
 /// <summary>Ein Ticket in der Auswahl beim Nachtragen.</summary>
 /// <remarks>
@@ -138,6 +179,17 @@ public sealed partial class GapRow : ObservableObject
 {
     private readonly Gap _gap;
     private readonly Func<GapRow, CancellationToken, Task<BookingResult>> _book;
+    private readonly GapCatalog _catalog;
+    private readonly Func<string, AiTask, CancellationToken, Task<string>>? _revise;
+
+    /// <summary>Für welche Firma die Geräteliste zuletzt geholt wurde.</summary>
+    /// <remarks>
+    /// Ohne diese Zahl liefe bei jedem Ticketwechsel innerhalb derselben Firma ein weiterer
+    /// Aufruf — und die Liste flackerte, während die Auswahl daneben zurückgesetzt würde.
+    /// </remarks>
+    private int _devicesFor;
+
+    private string? _beforeRevision;
 
     [ObservableProperty]
     private string _text = string.Empty;
@@ -160,50 +212,82 @@ public sealed partial class GapRow : ObservableObject
     [ObservableProperty]
     private DeviceRow? _selectedDevice = DeviceRow.None;
 
-    private readonly Func<int, CancellationToken, Task<IReadOnlyList<DeviceRow>>> _devices;
-    private readonly Func<string, AiTask, CancellationToken, Task<string>>? _revise;
+    /// <summary>Der Suchbegriff für die Firma.</summary>
+    [ObservableProperty]
+    private string _companyQuery = string.Empty;
+
+    [ObservableProperty]
+    private CompanyRow? _selectedCompany;
+
+    /// <summary>Was die Firmensuche zuletzt gesagt hat.</summary>
+    [ObservableProperty]
+    private string? _companyStatus;
+
+    [ObservableProperty]
+    private bool _isSearching;
 
     /// <summary>Baut die Zeile.</summary>
     /// <param name="gap">Die Lücke.</param>
-    /// <param name="tickets">Die Tickets zur Auswahl.</param>
+    /// <param name="catalog">Woher Firmen, Tickets und Geräte kommen.</param>
     /// <param name="book">Was beim Buchen geschieht.</param>
-    /// <param name="devices">Woher die Geräte einer Firma kommen.</param>
     /// <param name="revise">
     /// Die Sprachmodell-Unterstützung, oder <see langword="null"/>, wenn sie nicht zur Verfügung
     /// steht. <see cref="CanUseAi"/> blendet die Schaltflächen dann aus, statt sie ins Leere
     /// laufen zu lassen.
     /// </param>
-    public GapRow(Gap gap, IReadOnlyList<TicketRow> tickets,
+    public GapRow(Gap gap, GapCatalog catalog,
                   Func<GapRow, CancellationToken, Task<BookingResult>> book,
-                  Func<int, CancellationToken, Task<IReadOnlyList<DeviceRow>>> devices,
                   Func<string, AiTask, CancellationToken, Task<string>>? revise = null)
     {
         ArgumentNullException.ThrowIfNull(gap);
-        ArgumentNullException.ThrowIfNull(tickets);
+        ArgumentNullException.ThrowIfNull(catalog);
         ArgumentNullException.ThrowIfNull(book);
-        ArgumentNullException.ThrowIfNull(devices);
 
         _gap = gap;
         _book = book;
-        _devices = devices;
+        _catalog = catalog;
         _revise = revise;
-        Tickets = tickets;
+
+        foreach (TicketRow ticket in catalog.OwnTickets)
+        {
+            Tickets.Add(ticket);
+        }
 
         Devices.Add(DeviceRow.None);
 
         // Der Vorschlag kommt aus den Nachbarinnen und nur bei Einigkeit - siehe
         // Gap.SuggestedTicketId. Kein Vorschlag ist besser als ein geratener.
         SelectedTicket = gap.SuggestedTicketId > 0
-            ? tickets.FirstOrDefault(ticket => ticket.Id == gap.SuggestedTicketId)
+            ? Tickets.FirstOrDefault(ticket => ticket.Id == gap.SuggestedTicketId)
             : null;
     }
 
     /// <summary>
-    /// Die Geräte der Firma des gewählten Tickets.
+    /// Die Firmen, die die letzte Suche ergeben hat.
     /// </summary>
     /// <remarks>
-    /// <b>Erst gefüllt, wenn ein Ticket gewählt ist</b> — vorher ist die Firma unbekannt, und
-    /// ohne Firma gibt es keine sinnvolle Geräteliste. Geladen wird je Zeile auf Abruf und
+    /// Leer, solange niemand gesucht hat. Eine Liste aller Firmen des Hauses vorzuladen wäre
+    /// nutzlos — bei vierstelligen Kundenzahlen sucht man, statt zu blättern.
+    /// </remarks>
+    public ObservableCollection<CompanyRow> Companies { get; } = [];
+
+    /// <summary>
+    /// Die Tickets zur Auswahl.
+    /// </summary>
+    /// <remarks>
+    /// <b>Veränderlich, weil die Liste vom gewählten Kunden abhängt.</b> Ohne Firma stehen hier
+    /// die offenen Tickets des Technikers; ist eine Firma gewählt, stehen hier deren offene
+    /// Tickets — und zwar nur deren. Wer für einen Kollegen einspringt, findet das Ticket sonst
+    /// nicht, weil es ihm nicht gehört.
+    /// </remarks>
+    public ObservableCollection<TicketRow> Tickets { get; } = [];
+
+    /// <summary>
+    /// Die Geräte der gewählten Firma.
+    /// </summary>
+    /// <remarks>
+    /// <b>Erst gefüllt, wenn eine Firma feststeht</b> — über die Auswahl oder über das gewählte
+    /// Ticket. Vorher gibt es keine sinnvolle Geräteliste. Geladen wird je Zeile auf Abruf und
     /// nicht für alle Lücken im Voraus: Die meisten Lücken bekommen gar kein Gerät.
     /// </remarks>
     public ObservableCollection<DeviceRow> Devices { get; } = [];
@@ -211,8 +295,206 @@ public sealed partial class GapRow : ObservableObject
     /// <summary>Die Lücke selbst.</summary>
     public Gap Gap => _gap;
 
-    /// <summary>Die Tickets zur Auswahl.</summary>
-    public IReadOnlyList<TicketRow> Tickets { get; }
+    /// <summary>
+    /// Die Firma, auf die gebucht wird — <c>0</c>, wenn keine feststeht.
+    /// </summary>
+    /// <remarks>
+    /// <b>Das Ticket hat Vorrang vor der Auswahl.</b> Es ist das Genauere: Über das Ticket
+    /// findet TANSS Vertrag, Stundensatz und Abrechnungsart. Die Firma allein führt zwar auch
+    /// zu einem Stundensatz, aber nicht zum Vertrag — und der entscheidet über den Preis.
+    /// </remarks>
+    public int EffectiveCompanyId =>
+        SelectedTicket is { CompanyId: > 0 } ticket ? ticket.CompanyId : SelectedCompany?.Id ?? 0;
+
+    /// <summary>Ist eine Firma gewählt, deren Auswahl sich zurücknehmen lässt?</summary>
+    public bool HasCompany => SelectedCompany is not null;
+
+    /// <summary>Lässt sich gerade nach einer Firma suchen?</summary>
+    public bool CanSearchCompanies =>
+        !IsSearching && !IsBusy && !IsDone && !string.IsNullOrWhiteSpace(CompanyQuery);
+
+    /// <summary>
+    /// Sucht Firmen zum eingegebenen Begriff.
+    /// </summary>
+    /// <remarks>
+    /// <b>Auf Knopfdruck und nicht bei jedem Tastendruck.</b> Die Suche geht über
+    /// <c>PUT /api/v1/search</c> an die Produktivinstanz des Hauses; sie bei jedem Buchstaben
+    /// loszuschicken hiesse, für ein Wort ein Dutzend Abfragen zu erzeugen — und die Antwort
+    /// auf „Mus“ ist ohnehin nicht die, die jemand sucht.
+    /// </remarks>
+    /// <returns>Der abgeschlossene Vorgang.</returns>
+    [RelayCommand]
+    private async Task SearchCompaniesAsync()
+    {
+        if (!CanSearchCompanies)
+        {
+            return;
+        }
+
+        IsSearching = true;
+        CompanyStatus = "Sucht …";
+
+        try
+        {
+            CompanySearchResult found =
+                await _catalog.SearchCompanies(CompanyQuery.Trim(), CancellationToken.None)
+                    .ConfigureAwait(true);
+
+            Companies.Clear();
+            foreach (Company company in found.Companies)
+            {
+                Companies.Add(new CompanyRow(company));
+            }
+
+            // Der Satz kommt aus dem Lager und nicht von hier: Dort wird unterschieden, ob es
+            // keine Firma gibt oder ob es zu viele waren - und nur dort ist diese
+            // Unterscheidung hergeleitet statt geraten.
+            CompanyStatus = found.Explanation;
+
+            // Genau ein Treffer braucht keine Auswahl. Bei mehreren waere das Vorbelegen ein
+            // Raten, und geraten wird beim Kunden nicht.
+            if (Companies.Count == 1 && Companies[0].Selectable)
+            {
+                SelectedCompany = Companies[0];
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Der Tag wurde weitergeblaettert; diese Zeile gibt es nicht mehr.
+        }
+        catch (TanssException ex)
+        {
+            // Die Suche ist eine Bequemlichkeit, die Buchung ist Arbeitszeit. Ein Aussetzer der
+            // Leitung darf die Zeile nicht stilllegen - gebucht werden kann weiter ueber das
+            // eigene Ticket.
+            CompanyStatus = "Die Firmensuche ist fehlgeschlagen: " + Redaction.Scrub(ex.Message);
+        }
+        finally
+        {
+            IsSearching = false;
+        }
+    }
+
+    /// <summary>
+    /// Nimmt die Firmenauswahl zurück und stellt die eigenen Tickets wieder her.
+    /// </summary>
+    /// <returns>Der abgeschlossene Vorgang.</returns>
+    [RelayCommand]
+    private void ClearCompany()
+    {
+        SelectedCompany = null;
+        CompanyQuery = string.Empty;
+        Companies.Clear();
+        CompanyStatus = null;
+    }
+
+    partial void OnCompanyQueryChanged(string value) => RaiseCanExecute();
+
+    partial void OnIsSearchingChanged(bool value) => RaiseCanExecute();
+
+    /// <summary>
+    /// Eine gewählte Firma legt fest, welche Tickets und Geräte überhaupt zur Wahl stehen.
+    /// </summary>
+    /// <remarks>
+    /// <b>Die bisherige Ticketauswahl fällt dabei weg</b>, und zwar ausdrücklich: Ein
+    /// stehengebliebenes Ticket des vorigen Kunden wäre die falsche Zuordnung an der
+    /// unauffälligsten Stelle — die Leistung landete auf dessen Rechnung.
+    /// </remarks>
+    partial void OnSelectedCompanyChanged(CompanyRow? value)
+    {
+        SelectedTicket = null;
+        Tickets.Clear();
+
+        OnPropertyChanged(nameof(HasCompany));
+        OnPropertyChanged(nameof(EffectiveCompanyId));
+
+        if (value is null)
+        {
+            foreach (TicketRow ticket in _catalog.OwnTickets)
+            {
+                Tickets.Add(ticket);
+            }
+
+            SyncDevices();
+            return;
+        }
+
+        _ = LoadCompanyTicketsAsync(value.Id);
+        SyncDevices();
+    }
+
+    /// <summary>
+    /// Holt die offenen Tickets der gewählten Firma.
+    /// </summary>
+    /// <remarks>
+    /// <b>Wirft nicht.</b> Das Lager gibt bei einem Fehlschlag „nicht ermittelt“ samt fertigem
+    /// Satz zurück; gebucht werden kann dann ohne Ticket auf die Firma.
+    /// </remarks>
+    private async Task LoadCompanyTicketsAsync(int companyId)
+    {
+        try
+        {
+            CompanyTickets found =
+                await _catalog.TicketsOfCompany(companyId, CancellationToken.None)
+                    .ConfigureAwait(true);
+
+            // Die Firma koennte inzwischen gewechselt haben - dann gehoeren diese Tickets nicht
+            // mehr hierher.
+            if (SelectedCompany?.Id != companyId)
+            {
+                return;
+            }
+
+            Tickets.Clear();
+            foreach (Ticket ticket in found.Tickets)
+            {
+                Tickets.Add(new TicketRow(ticket));
+            }
+
+            CompanyStatus = found.CompanyName is { Length: > 0 } name
+                ? name + ": " + found.Explanation
+                : found.Explanation;
+        }
+        catch (OperationCanceledException)
+        {
+            // Der Tag wurde weitergeblaettert.
+        }
+    }
+
+    partial void OnSelectedTicketChanged(TicketRow? value)
+    {
+        OnPropertyChanged(nameof(EffectiveCompanyId));
+        SyncDevices();
+    }
+
+    /// <summary>
+    /// Sorgt dafür, dass die Geräteliste zur Firma passt, auf die gerade gebucht würde.
+    /// </summary>
+    /// <remarks>
+    /// <b>Nur beim Wechsel der Firma wird nachgeladen.</b> Zwei Tickets desselben Kunden führen
+    /// zur selben Geräteliste; sie dazwischen zu leeren und neu zu holen kostete einen Aufruf
+    /// und liesse die Auswahl des Technikers grundlos verschwinden.
+    /// </remarks>
+    private void SyncDevices()
+    {
+        int companyId = EffectiveCompanyId;
+
+        if (companyId == _devicesFor)
+        {
+            return;
+        }
+
+        _devicesFor = companyId;
+
+        SelectedDevice = DeviceRow.None;
+        Devices.Clear();
+        Devices.Add(DeviceRow.None);
+
+        if (companyId > 0)
+        {
+            _ = LoadDevicesAsync(companyId);
+        }
+    }
 
     /// <summary>Von wann bis wann.</summary>
     public string Time => _gap.Segment.ToString();
@@ -349,7 +631,6 @@ public sealed partial class GapRow : ObservableObject
     /// <summary>Gibt es eine Fassung, die sich zurückholen lässt?</summary>
     public bool CanUndoRevision => _beforeRevision is not null;
 
-    private string? _beforeRevision;
 
     /// <summary>Trägt die Leistung nach.</summary>
     /// <returns>Der abgeschlossene Vorgang.</returns>
@@ -380,21 +661,6 @@ public sealed partial class GapRow : ObservableObject
         }
     }
 
-    partial void OnSelectedTicketChanged(TicketRow? value)
-    {
-        // Die Geraete gehoeren zur Firma des Tickets. Wechselt das Ticket, ist die bisherige
-        // Auswahl womoeglich ein Geraet eines anderen Kunden - und das waere die falsche
-        // Zuordnung an der unauffaelligsten Stelle.
-        SelectedDevice = DeviceRow.None;
-        Devices.Clear();
-        Devices.Add(DeviceRow.None);
-
-        if (value is { CompanyId: > 0 } ticket)
-        {
-            _ = LoadDevicesAsync(ticket.CompanyId);
-        }
-    }
-
     /// <summary>
     /// Holt die Geräte einer Firma nach.
     /// </summary>
@@ -408,7 +674,8 @@ public sealed partial class GapRow : ObservableObject
         try
         {
             IReadOnlyList<DeviceRow> found =
-                await _devices(companyId, CancellationToken.None).ConfigureAwait(true);
+                await _catalog.DevicesOfCompany(companyId, CancellationToken.None)
+                    .ConfigureAwait(true);
 
             foreach (DeviceRow device in found)
             {
@@ -432,7 +699,9 @@ public sealed partial class GapRow : ObservableObject
         OnPropertyChanged(nameof(CanBook));
         OnPropertyChanged(nameof(CanRevise));
         OnPropertyChanged(nameof(CanUndoRevision));
+        OnPropertyChanged(nameof(CanSearchCompanies));
 
+        SearchCompaniesCommand.NotifyCanExecuteChanged();
         BookCommand.NotifyCanExecuteChanged();
         ProofreadCommand.NotifyCanExecuteChanged();
         ImproveCommand.NotifyCanExecuteChanged();

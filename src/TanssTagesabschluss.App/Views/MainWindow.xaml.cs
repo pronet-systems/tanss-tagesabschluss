@@ -43,7 +43,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         DataContext = Shell;
 
         Day = new DayViewModel(host);
-        History = new HistoryViewModel(host);
+        History = new HistoryViewModel(host, ConfigStore.Default(), host.Reload);
         Settings = new SettingsViewModel(host, ConfigStore.Default(), host.Reload);
         About = new AboutViewModel(_updates);
 

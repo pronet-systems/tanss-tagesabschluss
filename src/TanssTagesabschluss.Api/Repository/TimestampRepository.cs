@@ -28,6 +28,17 @@ public sealed class TimestampRepository : ITimestampRepository
 
     private readonly ITanssClient _client;
 
+    /// <summary>
+    /// Die zuletzt gelesene Modellkennung je Mitarbeiter.
+    /// </summary>
+    /// <remarks>
+    /// Das Arbeitszeitmodell eines Menschen wechselt nicht zwischen zwei Tagesansichten. Es bei
+    /// jedem Blaettern erneut zu holen kostete einen Aufruf je Tageswechsel fuer eine Zahl, die
+    /// sich zwischendurch nicht aendert. Der Zwischenspeicher lebt so lange wie dieses Lager -
+    /// also so lange wie die Verbindung; eine Aenderung in TANSS wirkt nach einem Neustart.
+    /// </remarks>
+    private readonly Dictionary<int, int> _modelIdByEmployee = [];
+
     /// <summary>Baut das Repository.</summary>
     /// <param name="client">
     /// Der HTTP-Zugang. Er muss zusätzlich <see cref="ITanssMetaRead"/> erfüllen — ohne den
@@ -86,7 +97,52 @@ public sealed class TimestampRepository : ITimestampRepository
 
         return new TimeRecording(
             [.. days.OrderBy(day => day.Date)],
-            ReadModels(meta));
+            ReadModels(meta),
+            await ModelIdOfAsync(employeeId, ct).ConfigureAwait(false));
+    }
+
+    /// <summary>
+    /// Liest, welches Arbeitszeitmodell diesem <b>Mitarbeiter</b> zugeordnet ist.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Das Modell hängt am Menschen und nicht am Tag.</b> Die Zeitauswertung führt je
+    /// Tag zwar ein <c>workingTimeModelId</c> mit, aber nachgemessen am 14.09.2026 steht dort
+    /// auf jedem Tag <c>0</c>. Die tragende Zahl ist
+    /// <c>employees/{id}.workingHourModelId</c>.</para>
+    ///
+    /// <para><b>Wirft nicht.</b> Die Modellkennung ist eine Verfeinerung: Ohne sie behandelt die
+    /// Fachschicht Montag bis Freitag als Arbeitstage und sagt das auch. Diesen Rückfall gegen
+    /// einen Aussetzer der Leitung einzutauschen — also die ganze Tagesansicht scheitern zu
+    /// lassen — wäre der schlechtere Handel.</para>
+    /// </remarks>
+    private async Task<int> ModelIdOfAsync(int employeeId, CancellationToken ct)
+    {
+        if (_modelIdByEmployee.TryGetValue(employeeId, out int cached))
+        {
+            return cached;
+        }
+
+        try
+        {
+            Employee? employee = await _client
+                .GetAsync<Employee>(TanssRoutes.EmployeeById(employeeId), ct: ct)
+                .ConfigureAwait(false);
+
+            int id = employee?.WorkingHourModelId ?? 0;
+            _modelIdByEmployee[employeeId] = id;
+            return id;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (TanssException)
+        {
+            // Nicht zwischenspeichern: Beim naechsten Versuch darf es gelingen. Eine gemerkte
+            // Null hiesse, dass ein einziger Aussetzer das Modell fuer die ganze Sitzung
+            // verschwinden laesst.
+            return 0;
+        }
     }
 
     /// <inheritdoc />

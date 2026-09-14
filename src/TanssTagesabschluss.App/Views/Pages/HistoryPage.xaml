@@ -32,6 +32,23 @@
                         design:Spacing.Size="8">
                 <!-- Vorgabe „nur offene“: Eine Liste mit vierzehn Zeilen, von denen zwei etwas
                      bedeuten, wird überflogen; eine mit zwei Zeilen wird gelesen. -->
+                <!-- Der Rückblick steht hier, weil hier die Frage aufkommt: Wer auf eine zu
+                     kurze Liste sieht, will sie an Ort und Stelle verlängern und nicht erst
+                     eine Seite weiter suchen. Es ist dieselbe Einstellung wie unter
+                     Einstellungen; geändert wird sie sofort gespeichert. -->
+                <ui:TextBlock Text="Rückblick" VerticalAlignment="Center" FontSize="12"
+                              Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                <ComboBox ItemsSource="{Binding RangeChoices}"
+                          SelectedItem="{Binding HistoryDays, Mode=TwoWay}"
+                          MinWidth="90" VerticalAlignment="Center"
+                          ToolTip="Wie viele Tage rückwärts die Übersicht zeigt. Je länger, desto länger lädt sie.">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding StringFormat={}{0} Tage}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+
                 <CheckBox Content="nur offene" IsChecked="{Binding OnlyOpen, Mode=TwoWay}"
                           VerticalAlignment="Center" />
                 <ui:Button Icon="{ui:SymbolIcon ArrowSync24}" Content="Neu laden"
