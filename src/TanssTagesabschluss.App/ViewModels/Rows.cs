@@ -298,16 +298,25 @@ public sealed partial class GapRow : ObservableObject, IDisposable
     private bool _isCompanyListOpen;
 
     /// <summary>
-    /// Die Dauer des ersten Teils in Minuten, wenn diese Lücke geteilt wird.
+    /// Wann der erste Teil endet, als Uhrzeit <c>HH:mm</c>.
     /// </summary>
     /// <remarks>
-    /// <b>Vorbelegt mit der Hälfte.</b> Ein Wert, der die ganze Lücke umfasst, liesse sich
-    /// nicht teilen und die Schaltfläche wäre von Anfang an grau — wer zum ersten Mal
-    /// hinsieht, hielte sie für kaputt. Die Hälfte ist ebenso willkürlich wie jeder andere
-    /// Vorschlag, aber sie ist immer gültig.
+    /// <para><b>Eine Uhrzeit und keine Dauer.</b> Wer eine Lücke aufteilt, weiss, wann er beim
+    /// einen Kunden aufgehört hat — nicht, wie viele Minuten das waren. Eine Dauer zwingt zum
+    /// Rechnen, und gerechnet wird dabei im Kopf und falsch.</para>
+    /// <para><b>Vorbelegt mit der Mitte.</b> Ein Wert am Rand liesse sich nicht teilen, und die
+    /// Schaltfläche wäre von Anfang an grau — wer zum ersten Mal hinsieht, hielte sie für
+    /// kaputt.</para>
     /// </remarks>
     [ObservableProperty]
-    private int _splitMinutes;
+    private string _splitAt = string.Empty;
+
+    /// <summary>Gibt es eine unmittelbar folgende Lücke, mit der sich diese vereinen lässt?</summary>
+    /// <remarks>
+    /// Setzt die Tagesansicht: Eine Zeile kennt nur sich und weiss nichts von ihrer Nachbarin.
+    /// </remarks>
+    [ObservableProperty]
+    private bool _hasNext;
 
     /// <summary>Baut die Zeile.</summary>
     /// <param name="gap">Die Lücke.</param>
@@ -338,9 +347,9 @@ public sealed partial class GapRow : ObservableObject, IDisposable
 
         Devices.Add(DeviceRow.None);
 
-        // Die Haelfte, mindestens eine Minute: Bei einer Luecke von genau einer Minute gaebe
-        // die Haelfte 0, und die Schaltflaeche waere grau statt schlicht unmoeglich.
-        _splitMinutes = Math.Max(1, (int)(gap.Duration.TotalMinutes / 2));
+        // Die Mitte, auf die Minute gerundet. Bei einer Luecke von einer Minute faellt sie mit
+        // dem Rand zusammen; dann bleibt die Schaltflaeche grau, und das ist richtig so.
+        _splitAt = Clock(gap.Start.AddMinutes(Math.Round(gap.Duration.TotalMinutes / 2)));
 
         // Der Vorschlag kommt aus den Nachbarinnen und nur bei Einigkeit - siehe
         // Gap.SuggestedTicketId. Kein Vorschlag ist besser als ein geratener.
@@ -712,15 +721,51 @@ public sealed partial class GapRow : ObservableObject, IDisposable
     /// <summary>Lässt sich diese Zeile noch buchen?</summary>
     public bool CanBook => !IsBusy && !IsDone;
 
-    /// <summary>Die ganze Länge der Lücke in Minuten — die Obergrenze für das Teilen.</summary>
-    public int TotalMinutes => (int)_gap.Duration.TotalMinutes;
+    /// <summary>Der Beginn der Lücke als Uhrzeit — der feste Teil der Angabe.</summary>
+    /// <remarks>
+    /// <b>Nicht änderbar, und das mit Absicht.</b> Den Beginn nach hinten zu schieben hiesse,
+    /// den Anfang der Lücke stillschweigend verfallen zu lassen — und genau diese Zeit zu
+    /// finden ist der Zweck dieses Werkzeugs.
+    /// </remarks>
+    public string StartText => Clock(_gap.Start);
+
+    /// <summary>Das Ende der Lücke als Uhrzeit.</summary>
+    public string EndText => Clock(_gap.End);
+
+    /// <summary>
+    /// Die eingegebene Teilungsstelle, sofern sie innerhalb der Lücke liegt.
+    /// </summary>
+    /// <remarks>
+    /// Beide Teile müssen übrig bleiben. Eine „Teilung“ am Rand wäre keine — sie hätte nur die
+    /// Nachbarinnen weggeworfen und die Zeile grundlos ersetzt.
+    /// </remarks>
+    private TimeSpan? SplitOffset
+    {
+        get
+        {
+            if (!TimeOnly.TryParse(SplitAt, CultureInfo.CurrentCulture, out TimeOnly at))
+            {
+                return null;
+            }
+
+            // Gerechnet wird vom Beginn aus und nicht ueber das Datum: Eine Luecke laeuft nie
+            // ueber Mitternacht -- der Tagesrahmen endet dort.
+            TimeSpan offset = at.ToTimeSpan() - TimeOnly.FromDateTime(_gap.Start.LocalDateTime).ToTimeSpan();
+
+            return offset > TimeSpan.Zero && offset < _gap.Duration ? offset : null;
+        }
+    }
 
     /// <summary>Lässt sich diese Lücke gerade teilen?</summary>
+    public bool CanSplit => CanBook && SplitOffset is not null;
+
+    /// <summary>Lässt sich diese Lücke mit der folgenden vereinen?</summary>
     /// <remarks>
-    /// Beide Teile müssen übrig bleiben. Eine „Teilung“, bei der einer der beiden Teile leer
-    /// ist, wäre keine — sie hätte nur die Nachbarinnen weggeworfen.
+    /// <b>Nur solange keine der beiden gebucht ist.</b> Eine gebuchte Leistung steht in TANSS
+    /// und liesse sich von hier aus nicht zurücknehmen; sie in ein grösseres Fenster
+    /// einzuschmelzen führte dazu, dass dieselbe Zeit ein zweites Mal gebucht wird.
     /// </remarks>
-    public bool CanSplit => CanBook && SplitMinutes > 0 && SplitMinutes < TotalMinutes;
+    public bool CanMerge => CanBook && HasNext;
 
     /// <summary>
     /// Teilt diese Lücke in zwei — für zwei verschiedene Tätigkeiten.
@@ -728,27 +773,49 @@ public sealed partial class GapRow : ObservableObject, IDisposable
     /// <remarks>
     /// <b>Die Zeile führt das nicht selbst aus.</b> Sie kennt nur sich; das Ersetzen einer
     /// Zeile durch zwei ist eine Sache der Liste, in der sie steht. Deshalb wird gemeldet und
-    /// nicht gehandelt — die Tagesansicht hört zu.
+    /// nicht gehandelt — die Tagesansicht hört zu. Dasselbe gilt für das Zusammenfügen, das
+    /// überdies die Nachbarzeile braucht.
     /// </remarks>
     [RelayCommand]
     private void Split()
     {
-        if (!CanSplit)
+        if (SplitOffset is { } offset && CanBook)
         {
-            return;
+            SplitRequested?.Invoke(this, offset);
         }
+    }
 
-        SplitRequested?.Invoke(this, TimeSpan.FromMinutes(SplitMinutes));
+    /// <summary>Fügt diese Lücke mit der folgenden wieder zusammen.</summary>
+    [RelayCommand]
+    private void Merge()
+    {
+        if (CanMerge)
+        {
+            MergeRequested?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     /// <summary>Meldet, dass diese Lücke an der genannten Stelle zu teilen ist.</summary>
     public event EventHandler<TimeSpan>? SplitRequested;
 
-    partial void OnSplitMinutesChanged(int value)
+    /// <summary>Meldet, dass diese Lücke mit der folgenden zu vereinen ist.</summary>
+    public event EventHandler? MergeRequested;
+
+    partial void OnSplitAtChanged(string value)
     {
         OnPropertyChanged(nameof(CanSplit));
         SplitCommand.NotifyCanExecuteChanged();
     }
+
+    partial void OnHasNextChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanMerge));
+        MergeCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>Eine Uhrzeit in der Form, die auch im Eingabefeld steht.</summary>
+    private static string Clock(DateTimeOffset moment) =>
+        moment.ToLocalTime().ToString("HH:mm", CultureInfo.CurrentCulture);
 
     /// <summary>Steht die Sprachmodell-Unterstützung zur Verfügung?</summary>
     /// <remarks>
@@ -916,8 +983,10 @@ public sealed partial class GapRow : ObservableObject, IDisposable
         OnPropertyChanged(nameof(CanUndoRevision));
         OnPropertyChanged(nameof(CanSearchCompanies));
         OnPropertyChanged(nameof(CanSplit));
+        OnPropertyChanged(nameof(CanMerge));
 
         SplitCommand.NotifyCanExecuteChanged();
+        MergeCommand.NotifyCanExecuteChanged();
         SearchCompaniesCommand.NotifyCanExecuteChanged();
         BookCommand.NotifyCanExecuteChanged();
         ProofreadCommand.NotifyCanExecuteChanged();

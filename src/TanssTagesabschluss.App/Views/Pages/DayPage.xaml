@@ -156,23 +156,46 @@
                                                  ohne Teilen bliebe nur, alles in EINEN
                                                  Leistungstext zu schreiben und auf EIN Ticket
                                                  zu buchen. Auf der Rechnung des Kunden waere
-                                                 das nicht mehr auseinanderzuhalten. -->
+                                                 das nicht mehr auseinanderzuhalten.
+
+                                                 Angegeben wird eine UHRZEIT und keine Dauer:
+                                                 Wer aufteilt, weiss, wann er beim einen Kunden
+                                                 aufgehoert hat, nicht wie viele Minuten das
+                                                 waren. -->
                                             <StackPanel Grid.Column="3" Orientation="Horizontal"
                                                         VerticalAlignment="Center"
                                                         Margin="12,0,12,0"
                                                         Visibility="{Binding CanBook, Converter={StaticResource BoolToVis}}">
-                                                <ui:NumberBox Value="{Binding SplitMinutes, Mode=TwoWay}"
-                                                              Minimum="1"
-                                                              Maximum="{Binding TotalMinutes}"
-                                                              SpinButtonPlacementMode="Compact"
-                                                              MinWidth="96" Margin="0,0,8,0"
-                                                              ToolTip="Wie viele Minuten auf den ersten Teil entfallen." />
+                                                <ui:TextBlock Text="Erster Teil" FontSize="12"
+                                                              VerticalAlignment="Center"
+                                                              Margin="0,0,8,0"
+                                                              Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                <ui:TextBlock Text="{Binding StartText}" FontSize="12"
+                                                              Style="{StaticResource TabularText}"
+                                                              VerticalAlignment="Center" Margin="0,0,6,0" />
+                                                <ui:TextBlock Text="bis" FontSize="12"
+                                                              VerticalAlignment="Center" Margin="0,0,6,0"
+                                                              Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                <ui:TextBox Text="{Binding SplitAt, UpdateSourceTrigger=PropertyChanged}"
+                                                            MinWidth="72" Margin="0,0,8,0"
+                                                            PlaceholderText="HH:mm"
+                                                            ToolTip="Wann der erste Teil endet. Muss zwischen Beginn und Ende dieses Zeitfensters liegen." />
 
                                                 <ui:Button Icon="{ui:SymbolIcon SplitHorizontal24}"
                                                            Content="Teilen"
                                                            Appearance="Secondary"
                                                            Command="{Binding SplitCommand}"
+                                                           Margin="0,0,8,0"
                                                            ToolTip="Teilt dieses Zeitfenster in zwei, damit sich zwei verschiedene T&#228;tigkeiten getrennt erfassen lassen." />
+
+                                                <!-- Das Gegenstueck: Wer an der falschen
+                                                     Stelle geteilt hat, soll das zuruecknehmen
+                                                     koennen, ohne den Tag neu zu laden. -->
+                                                <ui:Button Icon="{ui:SymbolIcon ArrowJoin20}"
+                                                           Appearance="Secondary"
+                                                           Command="{Binding MergeCommand}"
+                                                           Visibility="{Binding CanMerge, Converter={StaticResource BoolToVis}}"
+                                                           ToolTip="F&#252;gt dieses Zeitfenster mit dem unmittelbar folgenden wieder zusammen." />
                                             </StackPanel>
 
                                             <ui:SymbolIcon Grid.Column="4" Symbol="CheckmarkCircle24"

@@ -153,6 +153,36 @@ public sealed record Gap(TimeSegment Segment, SupportEntry? Before, SupportEntry
                 new Gap(new TimeSegment(cut, End), Before: null, After));
     }
 
+    /// <summary>
+    /// Fügt diese Lücke mit der unmittelbar folgenden wieder zusammen.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Das Gegenstück zu <see cref="SplitAfter"/>, und es wird gebraucht.</b> Wer an
+    /// der falschen Stelle geteilt hat, soll das zurücknehmen können, ohne den Tag neu zu laden
+    /// und die bereits geschriebenen Texte zu verlieren.</para>
+    ///
+    /// <para><b>Nur lückenlos aneinandergrenzend.</b> Zwei Fenster mit etwas dazwischen zu
+    /// einem zu verschmelzen hiesse, die Zeit dazwischen stillschweigend mitzubuchen — und die
+    /// gehört dorthin nicht: Zwischen zwei offenen Fenstern liegt entweder eine erfasste
+    /// Leistung oder eine gestempelte Pause, und beides wäre dann doppelt erfasst.</para>
+    ///
+    /// <para><b>Die Nachbarinnen kommen von aussen.</b> Die Leistung vor dem ersten und die
+    /// nach dem zweiten Fenster; was innen lag, gab es nie — dort stand die Naht.</para>
+    /// </remarks>
+    /// <param name="next">Die folgende Lücke.</param>
+    /// <returns>
+    /// Die zusammengefügte Lücke, oder <see langword="null"/>, wenn die beiden nicht
+    /// aneinandergrenzen.
+    /// </returns>
+    public Gap? MergeWith(Gap next)
+    {
+        ArgumentNullException.ThrowIfNull(next);
+
+        return End == next.Start
+            ? new Gap(new TimeSegment(Start, next.End), Before, next.After)
+            : null;
+    }
+
     /// <summary>Die Lücke in einer Zeile.</summary>
     /// <returns>Etwa <c>09:15–10:00 (45 min)</c>.</returns>
     public override string ToString() => string.Create(CultureInfo.CurrentCulture,

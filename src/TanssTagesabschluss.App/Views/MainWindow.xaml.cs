@@ -43,6 +43,11 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         DataContext = Shell;
 
         Day = new DayViewModel(host);
+
+        // Gleich hier und nicht erst, wenn die Seite aufgeschlagen wird: Das Ansichtsmodell
+        // lebt so lange wie das Fenster, die Seite nicht -- der Navigationsbereich baut sie
+        // bei jedem Wechsel neu. Eine Anmeldung dort haette sich vervielfacht.
+        Day.MergeTextRequested += AskMergeText;
         History = new HistoryViewModel(host, ConfigStore.Default(), host.Reload);
         Settings = new SettingsViewModel(host, ConfigStore.Default(), host.Reload);
         About = new AboutViewModel(_updates);
@@ -153,6 +158,24 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         // Die Karte auf der Einstellungsseite zeigt Anbieter und Modell - nach dem Schliessen
         // stimmt das sonst nicht mehr.
         Settings.RefreshAi();
+    }
+
+    /// <summary>
+    /// Fragt, welcher Leistungstext beim Zusammenfügen zweier Zeitfenster bleiben soll.
+    /// </summary>
+    /// <remarks>
+    /// <b>Hier und nicht im Ansichtsmodell.</b> Die Tagesansicht meldet die Frage; beantwortet
+    /// wird sie dort, wo sich ein Fenster öffnen lässt. So bleibt sie prüfbar, ohne dass eine
+    /// Prüfung ein Fenster aufzieht.
+    /// </remarks>
+    /// <param name="sender">Die Tagesansicht.</param>
+    /// <param name="question">Die beiden Texte; das Ergebnis wird dort eingetragen.</param>
+    public void AskMergeText(object? sender, MergeTextRequest question)
+    {
+        ArgumentNullException.ThrowIfNull(question);
+
+        MergeTextWindow window = new(question) { Owner = this };
+        window.ShowDialog();
     }
 
     /// <summary>Führt zur Seite „Über“, wo sich die neue Version holen lässt.</summary>

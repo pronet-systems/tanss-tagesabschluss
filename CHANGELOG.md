@@ -22,6 +22,15 @@ folgen [Semantic Versioning](https://semver.org/lang/de/).
   von beiden mehr ein Ticket vor, denn dort steht die andere Hälfte und trägt noch nichts.
   Geteilt wird an Ort und Stelle, ohne den Tag neu zu laden — die Lücke ist eine Rechnung dieses
   Werkzeugs und steht so in TANSS gar nicht.
+- **Und wieder zusammenfügen.** Wer an der falschen Stelle geteilt hat, nimmt es zurück, ohne
+  den Tag neu zu laden und ohne die geschriebenen Texte zu verlieren. Zwei Fenster mit etwas
+  dazwischen werden nicht verschmolzen: Dort liegt eine erfasste Leistung oder eine gestempelte
+  Pause, und die wäre sonst doppelt erfasst.
+  **Tragen beide Zeitfenster einen Text, wird gefragt** — erster, zweiter oder beide in der
+  Reihenfolge des Tages, jeweils mit Vorschau. Gefragt wird nur, wenn es etwas zu entscheiden
+  gibt; wer abbricht, lässt die beiden Fenster, wie sie waren.
+- **Die Teilungsstelle ist eine Uhrzeit, keine Dauer.** Wer aufteilt, weiss, wann er beim einen
+  Kunden aufgehört hat, nicht wie viele Minuten das waren.
 
 ## 0.1.0 — 2026-09-14
 

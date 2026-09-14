@@ -1,0 +1,78 @@
+﻿<ui:FluentWindow x:Class="TanssTagesabschluss.App.Views.MergeTextWindow"
+                xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                xmlns:design="clr-namespace:TanssTagesabschluss.App.Design"
+                Title="Zeitfenster zusammenfügen"
+                Width="720" Height="600"
+                MinWidth="560" MinHeight="440"
+                WindowStartupLocation="CenterOwner"
+                WindowBackdropType="Mica"
+                ExtendsContentIntoTitleBar="True"
+                WindowCornerPreference="Round">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0" Title="Zeitfenster zusammenfügen" ShowMaximize="False" />
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="24,8,24,16" design:Spacing.Size="16">
+
+                <ui:TextBlock TextWrapping="Wrap"
+                              Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                              Text="Beide Zeitfenster tragen einen Leistungstext. Was daraus wird, liest der Kunde auf seiner Rechnung — deshalb die Frage." />
+
+                <!-- Die Vorschau steht AM Vorschlag und nicht darunter: Wer sich zwischen drei
+                     Texten entscheidet, will sie sehen und nicht erst auswählen müssen, um sie
+                     zu sehen. -->
+                <RadioButton x:Name="BothOption" GroupName="Wahl" IsChecked="True">
+                    <StackPanel design:Spacing.Size="4">
+                        <ui:TextBlock Text="Beide, in der Reihenfolge des Tages"
+                                      FontTypography="BodyStrong" />
+                        <Border Style="{StaticResource CardBorder}">
+                            <ui:TextBlock x:Name="BothPreview" TextWrapping="Wrap" FontSize="12" />
+                        </Border>
+                    </StackPanel>
+                </RadioButton>
+
+                <RadioButton x:Name="FirstOption" GroupName="Wahl">
+                    <StackPanel design:Spacing.Size="4">
+                        <ui:TextBlock x:Name="FirstHeadline" FontTypography="BodyStrong" />
+                        <Border Style="{StaticResource CardBorder}">
+                            <ui:TextBlock x:Name="FirstPreview" TextWrapping="Wrap" FontSize="12" />
+                        </Border>
+                    </StackPanel>
+                </RadioButton>
+
+                <RadioButton x:Name="SecondOption" GroupName="Wahl">
+                    <StackPanel design:Spacing.Size="4">
+                        <ui:TextBlock x:Name="SecondHeadline" FontTypography="BodyStrong" />
+                        <Border Style="{StaticResource CardBorder}">
+                            <ui:TextBlock x:Name="SecondPreview" TextWrapping="Wrap" FontSize="12" />
+                        </Border>
+                    </StackPanel>
+                </RadioButton>
+
+                <ui:TextBlock FontSize="12" TextWrapping="Wrap"
+                              Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                              Text="Der übernommene Text lässt sich anschliessend weiter bearbeiten. Wer abbricht, lässt die beiden Zeitfenster, wie sie sind." />
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="2" Padding="24,12"
+                Background="{DynamicResource ApplicationBackgroundBrush}">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                        design:Spacing.Size="8">
+                <ui:Button Content="Abbrechen" Appearance="Secondary" IsCancel="True"
+                           Click="OnCancelClick" />
+                <ui:Button Content="Zusammenfügen" Appearance="Primary" IsDefault="True"
+                           Icon="{ui:SymbolIcon ArrowJoin20}" Click="OnConfirmClick" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</ui:FluentWindow>

@@ -116,6 +116,60 @@ public sealed class GapSplitTests
     }
 
     [Fact]
+    public void Geteiltes_laesst_sich_wieder_zusammenfuegen()
+    {
+        // Wer an der falschen Stelle geteilt hat, soll das zuruecknehmen koennen -- und was
+        // dabei herauskommt, muss genau die urspruengliche Luecke sein.
+        Gap ganz = Neun(Leistung(11, 100), Leistung(22, 200));
+        (Gap first, Gap second) = ganz.SplitAfter(TimeSpan.FromHours(4))!.Value;
+
+        Gap wieder = first.MergeWith(second)!;
+
+        Assert.Equal(ganz.Start, wieder.Start);
+        Assert.Equal(ganz.End, wieder.End);
+        Assert.Equal(ganz.Duration, wieder.Duration);
+
+        // Und die Nachbarinnen sind wieder da, wo sie hingehoeren.
+        Assert.Same(ganz.Before, wieder.Before);
+        Assert.Same(ganz.After, wieder.After);
+    }
+
+    [Fact]
+    public void Zwei_Fenster_mit_etwas_dazwischen_werden_nicht_verschmolzen()
+    {
+        // Zwischen zwei offenen Fenstern liegt entweder eine erfasste Leistung oder eine
+        // gestempelte Pause. Sie einzuschmelzen hiesse, diese Zeit ein zweites Mal zu buchen.
+        Gap vormittags = new(new TimeSegment(At(8), At(12)), null, null);
+        Gap nachmittags = new(new TimeSegment(At(13), At(17)), null, null);
+
+        Assert.Null(vormittags.MergeWith(nachmittags));
+    }
+
+    [Fact]
+    public void Die_Reihenfolge_zaehlt()
+    {
+        // MergeWith haengt die GENANNTE Luecke hinten an. Verkehrt herum grenzten sie nicht
+        // aneinander, und es kaeme nichts zurueck -- besser als ein rueckwaerts laufendes
+        // Fenster, das an jeder weiteren Stelle Unsinn ergibt.
+        (Gap first, Gap second) = Neun().SplitAfter(TimeSpan.FromHours(4))!.Value;
+
+        Assert.NotNull(first.MergeWith(second));
+        Assert.Null(second.MergeWith(first));
+    }
+
+    [Fact]
+    public void Drei_Teile_lassen_sich_Stueck_fuer_Stueck_wieder_vereinen()
+    {
+        (Gap a, Gap rest) = Neun().SplitAfter(TimeSpan.FromHours(2))!.Value;
+        (Gap b, Gap c) = rest.SplitAfter(TimeSpan.FromHours(3))!.Value;
+
+        Gap wieder = a.MergeWith(b)!.MergeWith(c)!;
+
+        Assert.Equal(At(8), wieder.Start);
+        Assert.Equal(At(17), wieder.End);
+    }
+
+    [Fact]
     public void Die_Sekunde_geht_nicht_verloren()
     {
         // Krumme Grenzen sind der Normalfall: Wer um 11:08 einstempelt, hat eine Luecke von

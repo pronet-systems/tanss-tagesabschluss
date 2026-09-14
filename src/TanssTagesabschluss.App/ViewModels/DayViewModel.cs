@@ -286,8 +286,7 @@ public sealed partial class DayViewModel : ObservableObject
         // durch eine Woche summiert sich das, wenn niemand sie freigibt.
         foreach (GapRow stale in Gaps)
         {
-            stale.SplitRequested -= OnSplitRequested;
-            stale.Dispose();
+            Forget(stale);
         }
 
         Gaps.Clear();
@@ -295,6 +294,8 @@ public sealed partial class DayViewModel : ObservableObject
         {
             Gaps.Add(NewRow(gap));
         }
+
+        MarkNeighbours();
 
         Supports.Clear();
         foreach (SupportEntry entry in analysis.Supports)
@@ -321,6 +322,7 @@ public sealed partial class DayViewModel : ObservableObject
             _ai is null ? null : (text, task, ct) => ReviseAsync(text, task, ct));
 
         row.SplitRequested += OnSplitRequested;
+        row.MergeRequested += OnMergeRequested;
         return row;
     }
 
@@ -364,13 +366,152 @@ public sealed partial class DayViewModel : ObservableObject
         head.SelectedTicket = row.SelectedTicket;
         head.SelectedDevice = row.SelectedDevice;
 
-        row.SplitRequested -= OnSplitRequested;
-        row.Dispose();
+        Forget(row);
 
         Gaps[at] = head;
         Gaps.Insert(at + 1, tail);
 
+        MarkNeighbours();
         RaiseDerived();
+    }
+
+    /// <summary>
+    /// Fügt eine Lücke mit der unmittelbar folgenden wieder zusammen.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Wer an der falschen Stelle geteilt hat, soll das zurücknehmen können</b> — ohne
+    /// den Tag neu zu laden und ohne die bereits geschriebenen Texte zu verlieren.</para>
+    ///
+    /// <para><b>Der Text der ersten Zeile bleibt.</b> Sie ist die, die stehen bleibt. Hat sie
+    /// keinen und die zweite einen, wird deren genommen — sonst ginge beim Zurücknehmen eines
+    /// Fehlgriffs genau das verloren, was schon getippt war. Beide Texte aneinanderzuhängen
+    /// wäre die schlechtere Wahl: Was dabei entsteht, liest der Kunde auf seiner Rechnung.</para>
+    /// </remarks>
+    private void OnMergeRequested(object? sender, EventArgs e)
+    {
+        if (sender is not GapRow row || row.IsDone)
+        {
+            return;
+        }
+
+        int at = Gaps.IndexOf(row);
+        if (at < 0 || at + 1 >= Gaps.Count)
+        {
+            return;
+        }
+
+        GapRow next = Gaps[at + 1];
+        if (next.IsDone || row.Gap.MergeWith(next.Gap) is not { } whole)
+        {
+            return;
+        }
+
+        if (ChooseText(row.Text, next.Text) is not { } text)
+        {
+            // Abgebrochen: Wer die Frage wegklickt, hat sich gegen den Eingriff entschieden.
+            return;
+        }
+
+        GapRow merged = NewRow(whole);
+
+        merged.Text = text;
+        merged.IsInternal = row.IsInternal || next.IsInternal;
+
+        // Die Auswahl der ersten Zeile, und nur wenn sie eine hat: Die der zweiten gehoerte zu
+        // einem Zeitraum, den es so nicht mehr gibt.
+        if (row.SelectedCompany is not null || row.SelectedTicket is not null)
+        {
+            merged.CompanyQuery = row.CompanyQuery;
+            merged.SelectedCompany = row.SelectedCompany;
+            merged.SelectedTicket = row.SelectedTicket;
+            merged.SelectedDevice = row.SelectedDevice;
+        }
+
+        Forget(row);
+        Forget(next);
+
+        Gaps[at] = merged;
+        Gaps.RemoveAt(at + 1);
+
+        MarkNeighbours();
+        RaiseDerived();
+    }
+
+    /// <summary>
+    /// Entscheidet, welcher Text das Zusammenfügen überlebt.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Gefragt wird nur, wenn wirklich etwas auf dem Spiel steht.</b> Trägt nur eine
+    /// der beiden Zeilen einen Text, wird er übernommen; sind beide gleich, bleibt einer übrig;
+    /// sind beide leer, gibt es nichts zu entscheiden. Eine Rückfrage, deren Antwort feststeht,
+    /// ist keine Rückfrage, sondern eine Hürde.</para>
+    ///
+    /// <para><b>Sonst entscheidet der, der die Texte geschrieben hat.</b> Einen der beiden
+    /// stillschweigend zu verwerfen hiesse, geschriebene Arbeit wegzuwerfen; sie
+    /// stillschweigend aneinanderzuhängen hiesse, dem Kunden zwei Beschreibungen derselben
+    /// Stunde auf die Rechnung zu setzen. Beides kann richtig sein.</para>
+    ///
+    /// <para><b>Hört niemand zu, werden beide genommen.</b> Das ist die Antwort, bei der nichts
+    /// verloren geht — und ein Werkzeug ohne Fenster (eine Prüfung etwa) soll an dieser Stelle
+    /// nicht anhalten.</para>
+    /// </remarks>
+    /// <returns>Der zu übernehmende Text, oder <see langword="null"/> bei Abbruch.</returns>
+    private string? ChooseText(string first, string second)
+    {
+        bool hasFirst = !string.IsNullOrWhiteSpace(first);
+        bool hasSecond = !string.IsNullOrWhiteSpace(second);
+
+        if (!hasFirst)
+        {
+            return hasSecond ? second : string.Empty;
+        }
+
+        if (!hasSecond || string.Equals(first.Trim(), second.Trim(), StringComparison.Ordinal))
+        {
+            return first;
+        }
+
+        MergeTextRequest question = new(first, second);
+
+        if (MergeTextRequested is null)
+        {
+            return question.Both;
+        }
+
+        MergeTextRequested.Invoke(this, question);
+        return question.Chosen;
+    }
+
+    /// <summary>Fragt, welcher Text beim Zusammenfügen bleiben soll.</summary>
+    /// <remarks>
+    /// Beantwortet wird sie dort, wo sich ein Fenster öffnen lässt — siehe
+    /// <c>MainWindow.AskMergeText</c>. Die Tagesansicht bleibt damit frei von Fenstern.
+    /// </remarks>
+    public event EventHandler<MergeTextRequest>? MergeTextRequested;
+
+    /// <summary>Meldet sich von einer Zeile ab und gibt sie frei.</summary>
+    private void Forget(GapRow row)
+    {
+        row.SplitRequested -= OnSplitRequested;
+        row.MergeRequested -= OnMergeRequested;
+        row.Dispose();
+    }
+
+    /// <summary>
+    /// Sagt jeder Zeile, ob nach ihr noch eine kommt.
+    /// </summary>
+    /// <remarks>
+    /// Eine Zeile kennt nur sich. Ob sich „mit der folgenden zusammenfügen“ anbieten lässt,
+    /// weiss allein die Liste — und sie muss es nach jeder Änderung neu sagen, sonst steht die
+    /// Schaltfläche an der letzten Zeile und führt ins Leere.
+    /// </remarks>
+    private void MarkNeighbours()
+    {
+        for (int i = 0; i < Gaps.Count; i++)
+        {
+            Gaps[i].HasNext = i + 1 < Gaps.Count
+                              && Gaps[i].Gap.End == Gaps[i + 1].Gap.Start;
+        }
     }
 
     /// <summary>Trägt eine Lücke nach.</summary>
