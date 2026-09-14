@@ -8,166 +8,34 @@ folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## Unveröffentlicht
 
-### Behoben
+## 0.1.0 — 2026-09-14
 
-- **Ein zweiter Start hinterliess einen Prozess ohne Fenster.** `Shutdown()` mitten in
-  `OnStartup` verpufft — die Nachrichtenschleife pumpt dort noch nicht. Wer die Anwendung
-  beendete und binnen zwei Sekunden neu startete, sah kein Fenster mehr; das Werkzeug lief im
-  Verborgenen weiter. Das Beenden geht jetzt über den Dispatcher.
-- **Beim Freigeben wird auf das Abmelden der Signalüberwachung gewartet.** Sonst kann ein
-  Rückruf noch laufen, während das Signal schon fällt. Auf den Start hat das keinen Einfluss —
-  ob eine Instanz läuft, entscheidet der Mutex.
-- **Das Anlegen einer Leistung schlug immer fehl.** TANSS bereitet eine Leistung mit
-  `linkTypeId = 0` und `linkId = 0` vor — aus einem Ticket genauso wie aus einer Firma. Wer
-  diesen Entwurf unverändert anlegt, bekommt HTTP 404 mit `SupportMissingAssignmentException`
-  und dem Satz „Sie müssen eine gültige Zuweisung auswählen!" — eine Prüfung, die TANSS hinter
-  einem 404 versteckt. Ohne gewähltes Gerät wird jetzt die **Firma** zugeordnet; ein Gerät hat
-  weiterhin Vorrang, weil nur damit die Leistung in der Gerätehistorie auftaucht.
-
-### Geändert
-
-- **Die Sprachmodell-Unterstützung trägt eine Plakette** — „eingeschaltet", „aus", „gesperrt"
-  oder „nicht eingerichtet", farbig wie im Schwesterprojekt. Die Frage beim Überfliegen lautet
-  „an oder aus?", und dafür taugt der Satz darunter nicht, der über zwei Zeilen läuft.
-  „Gesperrt" ist dabei etwas anderes als „aus": Ohne Einwilligung *kann* nichts übermittelt
-  werden, mit Einwilligung und abgeschalteter Unterstützung *soll* es nur gerade nicht.
-- **Die drei Auswahlfelder tragen Platzhalter** — „Firma", „Ticket", „Gerät". Drei leere
-  Kästchen nebeneinander sagen niemandem, welches welches ist. „— ohne Gerät —" steht
-  weiterhin in der Liste, ist aber nicht mehr vorbelegt.
-
-### Entfernt
-
-- **Das Arbeitszeitmodell wird nicht mehr aus TANSS gelesen.** Es war nicht zu bekommen: Die
-  Schnittstelle nennt zu einem Modell Kennung und Namen (etwa „Kernzeit"), aber keinen
-  Wochenplan; der in der Beschreibung genannte Ort `meta.listProperties.workingTimeModels`
-  fehlt in der Antwort ganz — geprüft mit und ohne `employeeIds` und für einen Mitarbeiter,
-  dem ein Modell zugeordnet ist. Die Route `/api/v1/workingHours/client` hilft nicht: Es gibt
-  sie in 10.10.0 nicht, und in 10.15 liefert sie die Servicezeiten der *Kunden*.
-  Damit entfallen `TimeRecording.Models`, die Abfrage von `employees/{id}` und der `meta`-Block
-  der Zeitauswertung.
-
-### Geändert
-
-- **Die Arbeitswoche ist Pflichtangabe.** Ohne Wochentage und Arbeitszeit lädt die
-  Konfiguration nicht mehr; die Tagesansicht sagt dann, welche Angabe fehlt und wo sie steht.
-  Die Eingabemaske schlägt Montag bis Freitag, 08:00 bis 17:00 vor — bestätigen kostet einen
-  Klick. Eine hinterlegte Vorgabe wäre eine Vermutung, die niemand je bestätigt, und genau die
-  soll es hier nicht geben.
-- **Die gestempelte Pause bleibt eine Pause.** Der erwartete Arbeitsrahmen wird um sie
-  erleichtert — sonst wäre die Mittagspause eine Lücke.
-- **„Keine Zeit erfasst" hat Vorrang vor „Lücken".** Wer teilweise gestempelt hat, muss
-  Leistungen nachtragen; wer gar nicht gestempelt hat, muss zuerst mit der Zeiterfassung ins
-  Reine kommen. Die Sollzeit steht trotzdem als offenes Fenster bereit.
-
-### Geändert
-
-- **Die Firmenliste klappt beim Tippen von selbst auf**, sobald es etwas zu sehen gibt — und
-  bleibt zu, solange nichts gefunden wurde.
-- **Neues Format in der Firmenliste:** erst die Kundennummer, dann der Name, dann in Klammern
-  Zentrale oder Filiale — etwa `10235 Wrede GmbH Softwarekonzepte (Zentrale)`. Die
-  Kundennummer steht vorn, weil sie die Zahl ist, die auf der Rechnung steht und im Gespräch
-  genannt wird.
-
-### Neu
-
-- **Lücken entstehen jetzt auch vor dem Einstempeln.** Wer um 11:08 stempelt, obwohl der
-  Arbeitstag um 8:00 beginnt, hatte für die drei Stunden davor keinen Zeitstempel — und damit
-  auch keine Lücke. Genau diese Stunden fielen durch jedes Raster. Unter Einstellungen lässt
-  sich jetzt die **Arbeitswoche** festlegen (Wochentage und die übliche Arbeitszeit); der
-  erwartete Rahmen wird dann mitdurchsucht. Am laufenden Tag reicht er nur bis jetzt, an freien
-  Tagen gilt er nicht.
-- **Die Arbeitswoche ersetzt die Annahme „Montag bis Freitag“.** Solange sie nicht gesetzt ist,
-  bleibt es bei der Annahme — mit dem Hinweis am Tag, dass die Einstufung nicht belegt ist.
-  Gesetzt verschwindet der Hinweis.
-
-- **Firmensuche in der Leistungserfassung.** Zu jeder Lücke lässt sich eine Firma suchen und
-  auswählen. Ist eine gewählt, stehen daneben **nur noch deren** offene Tickets und **nur noch
-  deren** Geräte — wer für einen Kollegen einspringt, findet dessen Ticket sonst nicht, weil es
-  ihm nicht gehört. Ohne Firma bleibt es bei den eigenen offenen Tickets; der Normalfall kostet
-  keinen Klick. Gebucht werden kann auch auf die Firma allein, ohne Ticket.
-  Das Feld sucht **selbsttätig ab drei Zeichen** — kein Suchknopf — und zeigt zu jeder Firma
-  Kundennummer und, wo TANSS es führt, **Zentrale** oder **Filiale**. Das ist nicht
-  Beiwerk: Gemessen heissen drei Firmen gleich, eine davon ist die Zentrale und eine die
-  Filiale.
-- **Der Rückblick ist auch im Überblick einstellbar** — dort, wo die Frage aufkommt. Sieben
-  Tage bis ein Jahr, sofort gespeichert.
-
-### Geändert
-
-- **Der Rückblick reicht jetzt bis 365 Tage** statt bis 90. Die alte Grenze stand unter der
-  Annahme, an älteren Tagen liesse sich ohnehin nichts mehr nachtragen — das stimmt so nicht:
-  Eine vergessene Leistung fällt oft erst bei der Quartalsabrechnung auf.
-- **Das Arbeitszeitmodell wird am Mitarbeiter gelesen, nicht am Tag.** Es steht in
-  `GET /api/v1/employees/{id}` unter `workingHourModelId` und gilt für alle seine Tage. Der Tag
-  der Zeitauswertung führt zwar ein eigenes Feld, das aber auf unserer Instanz durchgängig `0`
-  ist. Trägt ein Tag doch eine eigene Kennung, hat sie weiterhin Vorrang.
-
-### Behoben
-
-- **„Verbindung prüfen" schien nichts zu tun.** Sie tat etwas — nur eine halbe Minute lang
-  unsichtbar. Zwei Ursachen: Die Route `timestamps/statistics` braucht auf unserer Instanz rund
-  **13 Sekunden**, und zwar unabhängig vom angefragten Zeitraum (nachgemessen mit 1, 2, 7 und 30
-  Tagen). Und sie wurde **zweimal** gefragt — einmal für die Zeile „Zeiterfassung", einmal für
-  „Arbeitszeitmodell", obwohl beide aus derselben Antwort kommen. Jetzt wird einmal gelesen, und
-  jede Zeile erscheint, sobald sie feststeht; daneben steht „Prüft … 3 von 10 erledigt".
-- **Urlaub und Krankheit liessen sich nicht lesen.** `PUT /api/v1/vacationRequests/list`
-  antwortet nicht mit der beschriebenen Liste, sondern mit einem Objekt, in dem die Anträge
-  unter `vacationRequests` stehen. Gelesen werden jetzt beide Formen. Der Fehler war laut und
-  damit die freundlichere Möglichkeit — verschluckt hätte er jeden Urlaubstag zu einer
-  gemeldeten Lücke gemacht.
-- **Die Zeile zum Arbeitszeitmodell unterscheidet zwei Fälle.** „Kein Modell" heisst entweder,
-  dass TANSS den Wochenplan nicht mitliefert, oder dass dem Mitarbeiter gar keines zugeordnet
-  ist. Das verlangt verschiedene Schritte, und beides gleich zu melden schickte jemanden in die
-  falsche Richtung.
-
-- **Die eigene Firma wird jetzt gefunden.** Bisher lief die Erkennung über
-  `GET /api/erp/v1/companies/employees`; auf unserer Instanz antwortet dieser Weg mit 403, und
-  „Ermitteln“ blieb ohne Ergebnis. Den Vortritt hat nun
-  `GET /api/v1/employees/ownState` — dort steht die eigene Firma als Zahl, samt Anschrift, und
-  ein Aufruf genügt. Nachgemessen gegen 10.10.0: HTTP 200 mit `loggedInUserId`, HTTP 403 ohne.
-  Der alte Weg bleibt als Rückfall; scheitern beide, nennt die Meldung beide Gründe.
-- **Das Firmenlogo ist auf der Seite „Über“ wieder zu sehen.** Der Datei fehlte im Kopf ein
-  einzelnes Byte (`0D`), abhandengekommen bei einer Umwandlung von Zeilenenden. WPF zeichnet ein
-  unlesbares Bild ohne jede Meldung einfach nicht — ein Fehler, den nur bemerkt, wer weiss, dass
-  dort ein Logo stehen soll. Ein Test prüft die Kennfolge jetzt bei jedem Bau.
-- **Die Mitarbeiterkennung wird gegen das Token geprüft.** Weicht die hinterlegte Kennung von
-  der des angemeldeten Benutzers ab, gilt die des Tokens und die Einstellungen sagen es. Mit der
-  falschen Kennung hätte das Werkzeug fremde Zeiten gelesen und zu fremden Leistungen gemahnt.
-- **Vier Fehlermeldungen verwiesen auf das Schwesterwerkzeug.** Wer kein Token hatte, wurde
-  gebeten, `tanss-logwatch setup` auszuführen — ein Befehl, den es hier nicht gibt. Sie
-  verweisen jetzt auf die Anmeldung in den Einstellungen.
-
-### Neu
-
-- **Verbindungsprüfung in den Einstellungen.** Zehn lesende Stichproben, jede mit ihrer Route
-  und ihrem Befund: Erreichbarkeit, Token, Zeiterfassung, Arbeitszeitmodell, Leistungen,
-  Abwesenheiten, eigene Firma, Tickets, Feiertage, Zertifikatsprüfung.
-- **Speichern und Prüfen stehen oben** auf der Seite Einstellungen, und jede Karte trägt ihren
-  eigenen Befund. Bisher landete jede Meldung unten am Rand — weit weg von der Schaltfläche, die
-  sie ausgelöst hatte, und damit leicht zu übersehen.
-- **Eigenes Fenster für die Sprachmodell-Unterstützung**, wie im Schwesterprojekt: Anbieter,
-  Modell, Schlüssel und die ausdrückliche Einwilligung an einer Stelle.
-- **Die Seite „Über“** zeigt Logo, Version, Laufzeit, Betriebssystem, die Ablageorte und
-  ausdrücklich, was dieses Werkzeug **nicht** tut.
-
-### Geändert
-
-- Die Mitarbeiterkennung ist keine Eingabe mehr, sondern eine Anzeige mit aufgelöstem Namen.
-  Sie kommt aus der Anmeldung; sie von Hand zu ändern konnte nur schaden.
-
-## 0.1.0 — erste Fassung
+Die erste Fassung. Sie ist nie zuvor veröffentlicht worden; was während der Entwicklung
+geändert oder berichtigt wurde, steht deshalb nicht als eigene Zeile hier, sondern ist in die
+Beschreibung eingeflossen. Was gegen eine echte TANSS-Instanz nachgemessen ist und was nicht,
+steht unten.
 
 ### Neu
 
 - **Lückenerkennung.** Legt die Zeiterfassung und die erfassten Leistungen eines Tages
   übereinander und zeigt, was dazwischen offen bleibt. Gestempelte Pausen können dabei
   strukturell nicht als Lücke erscheinen.
+- **Auch die Zeit vor dem Einstempeln.** Wer um 11:08 stempelt, obwohl der Arbeitstag um 8:00
+  beginnt, hat für die drei Stunden davor keinen Zeitstempel — und damit hätte eine reine
+  Lückenrechnung dort auch keine Lücke gesehen. Der erwartete Arbeitsrahmen wird deshalb
+  mitdurchsucht. Am laufenden Tag reicht er nur bis jetzt, an freien Tagen gilt er nicht, und
+  gestempelte Pausen sind ausgenommen.
 - **Tagesansicht.** Ein Tag auf einmal, mit Kalender zum Blättern, den offenen Zeitfenstern und
   den bereits erfassten Leistungen. Zu jeder Lücke steht, welche Leistung davor und danach lag.
-- **Überblick.** Die letzten vierzehn Tage auf einen Blick — welcher Tag verdient überhaupt
-  einen Blick. Ein Klick führt in den Tag.
-- **Leistung nachtragen.** Text, Ticket, Gerät und das Kennzeichen „intern“, direkt aus der
-  Liste. Vorbelegt wird über TANSS, damit Stundensatz und Abrechnungsart stimmen.
+- **Überblick.** Die letzten Tage auf einen Blick — welcher Tag verdient überhaupt einen Blick.
+  Der Rückblick reicht von sieben Tagen bis zu einem Jahr und lässt sich dort oben rechts
+  umstellen. Ein Klick führt in den Tag.
+- **Leistung nachtragen.** Text, Firma, Ticket, Gerät und das Kennzeichen „intern", direkt aus
+  der Liste. Vorbelegt wird über TANSS, damit Stundensatz und Abrechnungsart stimmen.
+- **Firmensuche.** Das Firmenfeld sucht ab drei Zeichen von selbst und zeigt Kundennummer,
+  Namen und — wo TANSS es führt — Zentrale oder Filiale. Ist eine Firma gewählt, stehen daneben
+  nur noch **deren** offene Tickets und **deren** Geräte; wer für einen Kollegen einspringt,
+  findet dessen Ticket sonst nicht. Ohne Firma bleibt es bei den eigenen offenen Tickets.
 - **Zwei Erinnerungen.** Morgens der Vortag, abends vor Feierabend der laufende Tag. Läuft auch
   bei geschlossenem Fenster; die Anwendung liegt im Infobereich.
 - **Feiertage nach Bundesland.** Bestimmt aus der Postleitzahl der eigenen Firma, mit Auswahl
@@ -175,10 +43,48 @@ folgen [Semantic Versioning](https://semver.org/lang/de/).
   Mariä Himmelfahrt in Bayern) werden als solche gekennzeichnet.
 - **Urlaub, Krankheit und Abwesenheit** erklären eine fehlende Leistung — auch halbtags und
   stundenweise. Home-Office ausdrücklich nicht: Das ist gearbeitete Zeit.
-- **Sprachmodell-Unterstützung** für Korrektur und Ausformulierung des Leistungstextes.
-  Standardmässig abgeschaltet, mit ausdrücklicher Einwilligung und eigenem Schlüssel.
+- **Verbindungsprüfung.** Zehn lesende Stichproben in den Einstellungen, jede mit ihrer Route
+  und ihrem Befund. Jede Zeile erscheint, sobald sie feststeht.
+- **Sprachmodell-Unterstützung** für Korrektur und Ausformulierung des Leistungstextes, mit
+  eigenem Fenster und einer Plakette, die den Zustand in einem Wort nennt. Standardmässig
+  abgeschaltet, mit ausdrücklicher Einwilligung und eigenem Schlüssel.
 - **Aktualisierung und Setup.** Prüfung auf neue Fassungen, Hinweis in der Fußzeile, Setup pro
   Benutzer ohne Administratorrechte.
+
+### Einzurichten, bevor es losgeht
+
+- **Verbindung und Anmeldung.** Basisadresse eintragen, einmal anmelden — die
+  Mitarbeiterkennung kommt aus der Anmeldung und ist keine Eingabe.
+- **Eigene Firma.** „Ermitteln" liest sie über `GET /api/v1/employees/ownState`; aus ihrer
+  Postleitzahl folgt das Bundesland und daraus die Feiertage.
+- **Arbeitswoche — Pflichtangabe.** Wochentage und übliche Arbeitszeit. Ohne sie lädt die
+  Konfiguration nicht. Der Grund steht unten: TANSS gibt den Wochenplan nicht heraus, und
+  geraten wird hier nicht.
+
+### Gegen eine Instanz nachgemessen
+
+Alles Folgende ist gegen TANSS 10.10.0 geprüft, nicht aus der Beschreibung übernommen.
+
+- **Das Arbeitszeitmodell ist über die Schnittstelle nicht zu bekommen.** TANSS nennt zu einem
+  Modell Kennung und Namen (`meta.linkedEntities.employeeWorkingTimeModels`), aber keinen
+  Wochenplan; der Ort, den die Beschreibung dafür nennt
+  (`meta.listProperties.workingTimeModels`), fehlt in der Antwort ganz — geprüft mit und ohne
+  `employeeIds` und für einen Mitarbeiter, dem ein Modell zugeordnet ist. Die Route
+  `/api/v1/workingHours/client` hilft nicht: Es gibt sie in 10.10.0 nicht, und in 10.15 liefert
+  sie die Servicezeiten der *Kunden*. Deshalb die Pflichtangabe in den Einstellungen.
+- **Eine Leistung braucht eine Zuordnung.** TANSS bereitet mit `linkTypeId = 0` vor und lehnt
+  das Anlegen dann mit HTTP 404 und `SupportMissingAssignmentException` ab. Ohne gewähltes
+  Gerät wird deshalb die Firma zugeordnet.
+- **Die eigene Firma steht in `ownState`.** `GET /api/v1/employees/ownState` liefert
+  `ownCompanyId` und die ganze Firma samt Postleitzahl — mit `loggedInUserId` HTTP 200, ohne
+  ihn HTTP 403. Der ERP-Weg über `/api/erp/v1/companies/employees` antwortet mit 403 und bleibt
+  nur als Rückfall.
+- **Abwesenheiten kommen anders als beschrieben.** `PUT /api/v1/vacationRequests/list` liefert
+  kein Feld, sondern ein Objekt mit `vacationRequests`. Gelesen werden beide Formen.
+- **`timestamps/statistics` braucht rund 13 Sekunden**, unabhängig vom angefragten Zeitraum
+  (mit 1, 2, 7 und 30 Tagen geprüft). Die schnellere Route `timestamps/info` antwortet in rund
+  100 Millisekunden, liefert an einem Urlaubstag aber leere Tage — ohne `types`, ohne
+  `weekDay`. Sie wird deshalb nicht benutzt.
 
 ### Sicherheit
 
@@ -189,9 +95,23 @@ folgen [Semantic Versioning](https://semver.org/lang/de/).
   Token, auf das TANSS mit 403 antwortet, bestünde sie sonst klaglos.
 - Geheimnisse werden vor jeder Ausgabe geschwärzt (`Redaction`).
 
+### Was dieses Werkzeug nicht tut
+
+- Es setzt **keine Zeitstempel**. Kommen, Gehen und Pausen werden gelesen, niemals geschrieben.
+- Es schliesst **keinen Tag** in der Zeiterfassung ab.
+- Es bucht **nichts von selbst**. Jede Leistung entsteht, weil jemand sie geschrieben und
+  bestätigt hat.
+- Es übermittelt nichts nach draussen, solange die Sprachmodell-Unterstützung aus ist.
+  Feiertage und Postleitzahl sind die Ausnahme — dorthin gehen ein Jahr, ein Länderkürzel und
+  eine Postleitzahl, sonst nichts.
+
 ### Bekannte Einschränkungen
 
-- Die benutzten TANSS-Routen sind aus der Beschreibung zu 10.10.0 übernommen und noch nicht
-  gegen eine Instanz gemessen. Die Tests dafür liegen in `TanssTagesabschluss.Live.Tests`.
-- Die Oberfläche für die Sprachmodell-Einstellungen fehlt noch; die Werte lassen sich nur in
-  `config.json` setzen.
+- **Die Tagesansicht braucht rund 13 Sekunden je Tag.** Das ist die Route und nicht die Menge;
+  siehe oben.
+- **Das Setup ist nicht signiert.** SmartScreen meldet einen unbekannten Herausgeber. Die
+  Veröffentlichungsnotiz nennt den SHA256 zum Vergleich.
+- **Eine neue Fassung wird gemeldet, aber nicht eingespielt.** „Veröffentlichung öffnen" führt
+  in den Browser; heruntergeladen und installiert wird von Hand.
+- Die Live-Tests unter `TanssTagesabschluss.Live.Tests` laufen nur mit gesetzten
+  Umgebungsvariablen und werden sonst übersprungen.

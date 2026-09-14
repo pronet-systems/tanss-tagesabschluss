@@ -322,7 +322,10 @@ Get-ChildItem -LiteralPath $PayloadDir -Recurse -File |
     Where-Object { $_.Extension -eq '.pdb' -or $_.Extension -eq '.xml' } |
     ForEach-Object { Remove-Item -LiteralPath $_.FullName -Force }
 
-foreach ($required in @('TanssTagesabschluss.exe', 'tanss-tagesabschluss.exe')) {
+# Nur EINE Programmdatei. Die zweite stand hier als Erbe des Schwesterprojekts, das
+# neben der Oberflaeche ein Werkzeug fuer die Kommandozeile mitbringt -- dieses Projekt
+# hat keines, und der Riegel haette die erste Veroeffentlichung abgebrochen.
+foreach ($required in @('TanssTagesabschluss.exe')) {
     if (-not (Test-Path -LiteralPath (Join-Path $PayloadDir $required))) {
         Stop-WithReason -What "Im Nutzlastordner fehlt $required." `
             -Why 'Das Setup würde eine Verknüpfung anlegen, die ins Leere zeigt.' `
