@@ -58,7 +58,13 @@ public partial class App : Application
             // bereits" waere hier die schlechtere Antwort: Wer das Werkzeug startet, will es
             // sehen und nicht darueber belehrt werden, dass es schon da ist.
             SingleInstance.AskRunningInstanceToShow();
-            Shutdown();
+
+            // Ueber den Dispatcher und nicht unmittelbar. Shutdown() mitten in OnStartup
+            // verpufft: Die Schleife pumpt noch nicht, die Bitte wird verworfen, und uebrig
+            // bleibt ein Prozess ohne Fenster, der nie endet. Nachgemessen: Wer die Anwendung
+            // beendet und binnen zwei Sekunden neu startet, hatte genau das -- das Werkzeug
+            // schien nicht mehr zu starten, lief aber im Verborgenen weiter.
+            _ = Dispatcher.BeginInvoke(DispatcherPriority.Normal, new Action(Shutdown));
             return;
         }
 

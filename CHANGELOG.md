@@ -10,6 +10,10 @@ folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Behoben
 
+- **Ein zweiter Start hinterliess einen Prozess ohne Fenster.** `Shutdown()` mitten in
+  `OnStartup` verpufft — die Nachrichtenschleife pumpt dort noch nicht. Wer die Anwendung
+  beendete und binnen zwei Sekunden neu startete, sah kein Fenster mehr; das Werkzeug lief im
+  Verborgenen weiter. Das Beenden geht jetzt über den Dispatcher.
 - **Nach dem Beenden startete das Werkzeug unter Umständen nicht mehr.** Beim Freigeben wurde
   auf das Abmelden der Signalüberwachung nicht gewartet; das benannte Ereignis lebte noch kurz
   weiter. Ein sofort danach gestartetes Werkzeug fand es, hielt die längst beendete Instanz für
