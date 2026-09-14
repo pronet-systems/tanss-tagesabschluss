@@ -156,12 +156,16 @@
                                                            Visibility="{Binding IsDone, Converter={StaticResource BoolToVis}}" />
                                         </Grid>
 
-                                        <!-- Zeile 2: Der Text. Mehrzeilig, weil eine
-                                             Leistungsbeschreibung selten in eine Zeile passt. -->
+                                        <!-- Zeile 2: Der Text.
+                                             Mehrzeilig, weil eine Leistungsbeschreibung selten
+                                             in eine Zeile passt - und hoch genug fuer mehr als
+                                             drei. Was hier steht, liest der Kunde auf seiner
+                                             Rechnung; ein Feld, in dem drei Zeilen sichtbar
+                                             sind, erzieht zu drei Zeilen. -->
                                         <ui:TextBox Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}"
                                                     PlaceholderText="Was wurde in dieser Zeit getan?"
                                                     AcceptsReturn="True" TextWrapping="Wrap"
-                                                    MinHeight="56" MaxHeight="120"
+                                                    MinHeight="110" MaxHeight="260"
                                                     VerticalScrollBarVisibility="Auto"
                                                     IsEnabled="{Binding CanBook}" />
 
@@ -175,27 +179,39 @@
                                                  ohnehin, und ab drei Zeichen sucht das Feld
                                                  von selbst. Ein zweites Auswahlfeld daneben
                                                  waere derselbe Inhalt an zwei Stellen. -->
-                                            <ComboBox IsEditable="True"
-                                                      IsTextSearchEnabled="False"
-                                                      StaysOpenOnEdit="True"
-                                                      Text="{Binding CompanyQuery, UpdateSourceTrigger=PropertyChanged}"
-                                                      ItemsSource="{Binding Companies}"
-                                                      SelectedItem="{Binding SelectedCompany, Mode=TwoWay}"
-                                                      IsDropDownOpen="{Binding IsCompanyListOpen, Mode=TwoWay}"
-                                                      IsEnabled="{Binding CanBook}"
-                                                      MinWidth="320" Margin="0,0,8,0"
-                                                      ToolTip="Firma suchen &#8212; ab drei Zeichen sucht das Feld von selbst. Die Auswahl bestimmt, welche Tickets und Ger&#228;te daneben zur Wahl stehen.">
-                                                <ComboBox.ItemContainerStyle>
-                                                    <Style TargetType="ComboBoxItem">
-                                                        <!-- Gesperrte Firmen bleiben sichtbar,
-                                                             aber unwaehlbar: Sie wegzulassen
-                                                             hiesse, dass jemand sucht und
-                                                             nicht findet, ohne zu erfahren,
-                                                             warum. -->
-                                                        <Setter Property="IsEnabled" Value="{Binding Selectable}" />
-                                                    </Style>
-                                                </ComboBox.ItemContainerStyle>
-                                            </ComboBox>
+                                            <Grid Margin="0,0,8,0">
+                                                <ComboBox IsEditable="True"
+                                                          IsTextSearchEnabled="False"
+                                                          StaysOpenOnEdit="True"
+                                                          Text="{Binding CompanyQuery, UpdateSourceTrigger=PropertyChanged}"
+                                                          ItemsSource="{Binding Companies}"
+                                                          SelectedItem="{Binding SelectedCompany, Mode=TwoWay}"
+                                                          IsDropDownOpen="{Binding IsCompanyListOpen, Mode=TwoWay}"
+                                                          IsEnabled="{Binding CanBook}"
+                                                          MinWidth="320"
+                                                          ToolTip="Firma suchen &#8212; ab drei Zeichen sucht das Feld von selbst. Die Auswahl bestimmt, welche Tickets und Ger&#228;te daneben zur Wahl stehen.">
+                                                    <ComboBox.ItemContainerStyle>
+                                                        <Style TargetType="ComboBoxItem">
+                                                            <!-- Gesperrte Firmen bleiben
+                                                                 sichtbar, aber unwaehlbar: Sie
+                                                                 wegzulassen hiesse, dass
+                                                                 jemand sucht und nicht findet,
+                                                                 ohne zu erfahren, warum. -->
+                                                            <Setter Property="IsEnabled" Value="{Binding Selectable}" />
+                                                        </Style>
+                                                    </ComboBox.ItemContainerStyle>
+                                                </ComboBox>
+
+                                                <!-- Der Platzhalter haengt am Suchtext und
+                                                     nicht an der Auswahl: Das Feld ist
+                                                     beschreibbar, und wer tippt, hat noch
+                                                     nichts gewaehlt - der Platzhalter muss
+                                                     trotzdem sofort weichen. -->
+                                                <TextBlock Text="Firma" IsHitTestVisible="False"
+                                                           Margin="10,0,0,0" VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                                           Visibility="{Binding CompanyQuery, Converter={StaticResource EmptyToVisible}}" />
+                                            </Grid>
 
                                             <ui:Button Icon="{ui:SymbolIcon Dismiss24}"
                                                        ToolTip="Firmenauswahl zur&#252;cknehmen &#8212; daneben stehen dann wieder die eigenen Tickets."
@@ -203,11 +219,18 @@
                                                        Margin="0,0,8,0"
                                                        Visibility="{Binding HasCompany, Converter={StaticResource BoolToVis}}" />
 
-                                            <ComboBox ItemsSource="{Binding Tickets}"
-                                                      SelectedItem="{Binding SelectedTicket, Mode=TwoWay}"
-                                                      IsEnabled="{Binding CanBook}"
-                                                      MinWidth="240" Margin="0,0,8,0"
-                                                      ToolTip="Das Ticket, auf das gebucht wird. Ohne Firma sind das die eigenen offenen Tickets." />
+                                            <Grid Margin="0,0,8,0">
+                                                <ComboBox ItemsSource="{Binding Tickets}"
+                                                          SelectedItem="{Binding SelectedTicket, Mode=TwoWay}"
+                                                          IsEnabled="{Binding CanBook}"
+                                                          MinWidth="240"
+                                                          ToolTip="Das Ticket, auf das gebucht wird. Ohne Firma sind das die eigenen offenen Tickets." />
+
+                                                <TextBlock Text="Ticket" IsHitTestVisible="False"
+                                                           Margin="10,0,0,0" VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                                           Visibility="{Binding SelectedTicket, Converter={StaticResource EmptyToVisible}}" />
+                                            </Grid>
 
                                             <Grid Margin="0,0,8,0">
                                                 <ComboBox ItemsSource="{Binding Devices}"
