@@ -1,0 +1,209 @@
+<Page x:Class="TanssTagesabschluss.App.Views.Pages.SettingsPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+      xmlns:design="clr-namespace:TanssTagesabschluss.App.Design"
+      Style="{StaticResource PageSurface}"
+      Title="Einstellungen">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="{StaticResource PagePadding}" MaxWidth="820"
+                    HorizontalAlignment="Left" design:Spacing.Size="16">
+
+            <StackPanel>
+                <ui:TextBlock Text="Einstellungen" FontTypography="Title" />
+                <ui:TextBlock Margin="0,4,0,0" TextWrapping="Wrap"
+                              Text="Vier Angaben, von denen zwei sich selbst ermitteln."
+                              Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+            </StackPanel>
+
+            <!-- ===== Verbindung ======================================================= -->
+            <Border Style="{StaticResource CardBorder}">
+                <StackPanel design:Spacing.Size="12">
+                    <ui:TextBlock Text="Verbindung zu TANSS" FontTypography="Subtitle" />
+
+                    <StackPanel design:Spacing.Size="4">
+                        <ui:TextBlock Text="Basisadresse" FontSize="12" />
+                        <ui:TextBox Text="{Binding BaseUrl, UpdateSourceTrigger=PropertyChanged}"
+                                    PlaceholderText="https://tanss.beispiel.de/backend" />
+                        <!-- Die häufigste Fehlerquelle überhaupt: Zeigt die Adresse auf die
+                             Weboberfläche statt auf /backend, antwortet diese auf jede Anfrage
+                             mit HTTP 400 — und der Fehler sieht wie ein Programmfehler aus. -->
+                        <ui:TextBlock FontSize="11" TextWrapping="Wrap"
+                                      Text="Muss auf /backend enden. Zeigt sie auf die Weboberfläche, antwortet TANSS auf jede Anfrage mit HTTP 400."
+                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="16" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" design:Spacing.Size="4">
+                            <ui:TextBlock Text="Anmeldename" FontSize="12" />
+                            <ui:TextBox Text="{Binding UserName, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2" design:Spacing.Size="4">
+                            <ui:TextBlock Text="Kennwort" FontSize="12" />
+                            <!-- KEINE Bindung: Ein gebundenes Kennwort läge im Speicher des
+                                 Ansichtsmodells, solange die Seite offen ist. Gelesen wird es
+                                 im Quelltext dahinter und nur für die Dauer des Aufrufs. -->
+                            <PasswordBox x:Name="Password" Height="32" VerticalContentAlignment="Center" />
+                        </StackPanel>
+                    </Grid>
+
+                    <StackPanel Orientation="Horizontal" design:Spacing.Size="8">
+                        <ui:Button Appearance="Primary" Content="Anmelden und Token prägen"
+                                   Icon="{ui:SymbolIcon Key24}"
+                                   Click="OnSignInClick"
+                                   IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
+                        <ui:TextBlock Text="{Binding TokenText}" VerticalAlignment="Center"
+                                      FontSize="12"
+                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" design:Spacing.Size="12">
+                        <ui:TextBlock Text="Mitarbeiterkennung" VerticalAlignment="Center" FontSize="12" />
+                        <ui:NumberBox Value="{Binding EmployeeId, Mode=TwoWay}" MinWidth="100"
+                                      ToolTip="Sie entscheidet, wessen Zeiten geprüft werden. Die Anmeldung setzt sie selbst." />
+                        <CheckBox Content="TLS-Zertifikat prüfen" VerticalAlignment="Center"
+                                  IsChecked="{Binding VerifyTls, Mode=TwoWay}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- ===== Eigene Firma und Bundesland ===================================== -->
+            <Border Style="{StaticResource CardBorder}">
+                <StackPanel design:Spacing.Size="12">
+                    <ui:TextBlock Text="Eigene Firma und Bundesland" FontTypography="Subtitle" />
+                    <ui:TextBlock FontSize="12" TextWrapping="Wrap"
+                                  Text="Aus der Postleitzahl der eigenen Firma folgt das Bundesland, und daraus die gesetzlichen Feiertage. Ohne sie erscheint an einem Feiertag ohne Zeiterfassung ein Hinweis, der keiner sein müsste."
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+
+                    <StackPanel Orientation="Horizontal" design:Spacing.Size="8">
+                        <ui:Button Content="Ermitteln" Icon="{ui:SymbolIcon Search24}"
+                                   Command="{Binding DetectCompanyCommand}"
+                                   IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
+                        <ui:TextBlock Text="{Binding OwnCompanyName}" VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="16" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" design:Spacing.Size="4">
+                            <ui:TextBlock Text="Postleitzahl" FontSize="12" />
+                            <ui:TextBox Text="{Binding PostalCode, UpdateSourceTrigger=PropertyChanged}"
+                                        MinWidth="100" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2" design:Spacing.Size="4">
+                            <ui:TextBlock Text="Bundesland" FontSize="12" />
+                            <ComboBox ItemsSource="{Binding FederalStates}"
+                                      SelectedItem="{Binding FederalState, Mode=TwoWay}"
+                                      MinWidth="240" HorizontalAlignment="Left" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Wer eine Niederlassung in einem anderen Bundesland betreut als die, in
+                         der die Firma gemeldet ist, hat dafür einen Grund — und eine spätere
+                         Erkennung darf ihn nicht stillschweigend übergehen. -->
+                    <CheckBox Content="Bundesland von Hand gesetzt (nicht mehr selbsttätig überschreiben)"
+                              IsChecked="{Binding FederalStateIsManual, Mode=TwoWay}" />
+                </StackPanel>
+            </Border>
+
+            <!-- ===== Erinnerungen ==================================================== -->
+            <Border Style="{StaticResource CardBorder}">
+                <StackPanel design:Spacing.Size="12">
+                    <ui:TextBlock Text="Erinnerungen" FontTypography="Subtitle" />
+                    <ui:TextBlock FontSize="12" TextWrapping="Wrap"
+                                  Text="Morgens geht es um gestern — der Tag ist vorbei, was fehlt, fehlt endgültig. Abends geht es um heute, und da lässt es sich noch in einer Minute nachtragen."
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="16" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" design:Spacing.Size="6">
+                            <CheckBox Content="Morgens den Vortag prüfen"
+                                      IsChecked="{Binding MorningEnabled, Mode=TwoWay}" />
+                            <ui:TextBox Text="{Binding MorningTime, UpdateSourceTrigger=PropertyChanged}"
+                                        PlaceholderText="08:30" MaxWidth="100"
+                                        HorizontalAlignment="Left" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2" design:Spacing.Size="6">
+                            <CheckBox Content="Abends vor Feierabend erinnern"
+                                      IsChecked="{Binding EveningEnabled, Mode=TwoWay}" />
+                            <ui:TextBox Text="{Binding EveningTime, UpdateSourceTrigger=PropertyChanged}"
+                                        PlaceholderText="16:45" MaxWidth="100"
+                                        HorizontalAlignment="Left" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Eine Meldung „alles in Ordnung“, die jeden Tag erscheint, wird nach
+                         einer Woche weggeklickt — und dann auch die, bei der etwas dransteht. -->
+                    <CheckBox Content="Nur melden, wenn etwas offen ist"
+                              IsChecked="{Binding OnlyWhenSomethingIsOpen, Mode=TwoWay}" />
+                </StackPanel>
+            </Border>
+
+            <!-- ===== Was als Lücke gilt ============================================== -->
+            <Border Style="{StaticResource CardBorder}">
+                <StackPanel design:Spacing.Size="12">
+                    <ui:TextBlock Text="Was als Lücke gilt" FontTypography="Subtitle" />
+
+                    <StackPanel Orientation="Horizontal" design:Spacing.Size="12">
+                        <ui:TextBlock Text="Mindestdauer (Minuten)" VerticalAlignment="Center" FontSize="12" />
+                        <ui:NumberBox Value="{Binding MinimumMinutes, Mode=TwoWay}" MinWidth="90"
+                                      ToolTip="Kürzere Zeitfenster stehen nicht in der Liste. 15 Minuten ist die übliche Abrechnungseinheit." />
+
+                        <ui:TextBlock Text="Rückblick (Tage)" VerticalAlignment="Center" FontSize="12" />
+                        <ui:NumberBox Value="{Binding HistoryDays, Mode=TwoWay}" MinWidth="90"
+                                      ToolTip="Wie weit der Überblick zurückreicht." />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- ===== Speichern und Beanstandungen ==================================== -->
+            <StackPanel design:Spacing.Size="8">
+                <StackPanel Orientation="Horizontal" design:Spacing.Size="12">
+                    <ui:Button Appearance="Primary" Content="Speichern"
+                               Icon="{ui:SymbolIcon Save24}"
+                               Command="{Binding SaveSettingsCommand}" />
+                    <ui:TextBlock Text="{Binding Status}" VerticalAlignment="Center"
+                                  TextWrapping="Wrap" FontSize="12" />
+                </StackPanel>
+
+                <ui:InfoBar Severity="Warning" IsClosable="False" IsOpen="True"
+                            Title="Nicht gespeichert"
+                            Visibility="{Binding HasProblems, Converter={StaticResource BoolToVis}}">
+                    <ui:InfoBar.Content>
+                        <ItemsControl ItemsSource="{Binding Problems}" Margin="0,8,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <ui:TextBlock Text="{Binding}" TextWrapping="Wrap"
+                                                  FontSize="12" Margin="0,0,0,4" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ui:InfoBar.Content>
+                </ui:InfoBar>
+
+                <ui:TextBlock FontSize="11" TextWrapping="Wrap"
+                              Text="{Binding ConfigPath, StringFormat=Die Konfiguration liegt unter {0}}"
+                              Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

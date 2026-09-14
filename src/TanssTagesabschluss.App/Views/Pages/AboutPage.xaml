@@ -1,0 +1,100 @@
+<Page x:Class="TanssTagesabschluss.App.Views.Pages.AboutPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+      xmlns:design="clr-namespace:TanssTagesabschluss.App.Design"
+      Style="{StaticResource PageSurface}"
+      Title="Über">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="{StaticResource PagePadding}" MaxWidth="780"
+                    HorizontalAlignment="Left" design:Spacing.Size="16">
+
+            <StackPanel>
+                <ui:TextBlock Text="TANSS Tagesabschluss" FontTypography="Title" />
+                <ui:TextBlock Margin="0,4,0,0" TextWrapping="Wrap"
+                              Text="Findet die Zeitfenster, in denen gearbeitet, aber keine Leistung erfasst wurde — und schliesst sie."
+                              Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+            </StackPanel>
+
+            <Border Style="{StaticResource CardBorder}">
+                <StackPanel design:Spacing.Size="8">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="140" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <ui:TextBlock Grid.Column="0" Text="Fassung"
+                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        <ui:TextBlock Grid.Column="1" Text="{Binding VersionText}"
+                                      Style="{StaticResource TabularText}" />
+                    </Grid>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="140" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <ui:TextBlock Grid.Column="0" Text="Hersteller"
+                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        <ui:TextBlock Grid.Column="1" Text="{Binding Company}" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- ===== Aktualisierung =================================================== -->
+            <Border Style="{StaticResource CardBorder}">
+                <StackPanel design:Spacing.Size="12">
+                    <ui:TextBlock Text="Aktualisierung" FontTypography="Subtitle" />
+                    <ui:TextBlock Text="{Binding StateText}" TextWrapping="Wrap" />
+
+                    <StackPanel Orientation="Horizontal" design:Spacing.Size="8">
+                        <ui:Button Content="Nachsehen" Icon="{ui:SymbolIcon ArrowSync24}"
+                                   Command="{Binding CheckCommand}"
+                                   IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
+                        <!-- Bewusst der Browser und kein Herunterladen im Fenster: Wer eine
+                             neue Fassung einspielt, soll vorher lesen, was sich geändert hat. -->
+                        <ui:Button Content="Veröffentlichung öffnen" Icon="{ui:SymbolIcon Open24}"
+                                   Command="{Binding OpenReleasesCommand}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- ===== Ablageorte ======================================================= -->
+            <Border Style="{StaticResource CardBorder}">
+                <StackPanel design:Spacing.Size="8">
+                    <ui:TextBlock Text="Ablageorte" FontTypography="Subtitle" />
+                    <!-- Die Pfade stehen hier, weil sie im Fehlerfall gebraucht werden: Wer
+                         einer Fehlermeldung nachgeht, sucht als Erstes die Konfiguration. -->
+                    <ui:TextBlock Text="{Binding ConfigPath}" FontSize="12" TextWrapping="Wrap"
+                                  Style="{StaticResource TabularText}" />
+                    <ui:TextBlock Text="{Binding TokenPath}" FontSize="12" TextWrapping="Wrap"
+                                  Style="{StaticResource TabularText}" />
+                    <ui:TextBlock Text="{Binding HolidayCachePath}" FontSize="12" TextWrapping="Wrap"
+                                  Style="{StaticResource TabularText}" />
+
+                    <ui:Button Content="Ordner öffnen" Icon="{ui:SymbolIcon FolderOpen24}"
+                               HorizontalAlignment="Left"
+                               Command="{Binding OpenConfigFolderCommand}" />
+                </StackPanel>
+            </Border>
+
+            <!-- ===== Was dieses Werkzeug nicht tut ==================================== -->
+            <Border Style="{StaticResource CardBorder}">
+                <StackPanel design:Spacing.Size="8">
+                    <ui:TextBlock Text="Was dieses Werkzeug nicht tut" FontTypography="Subtitle" />
+                    <!-- Ausdrücklich auf einer sichtbaren Seite und nicht nur im Quelltext:
+                         Wer ein Werkzeug an seine Arbeitszeiten lässt, soll wissen, wo dessen
+                         Grenzen verlaufen. -->
+                    <ui:TextBlock FontSize="12" TextWrapping="Wrap"
+                                  Text="• Es setzt keine Zeitstempel. Kommen, Gehen und Pausen werden gelesen, niemals geschrieben." />
+                    <ui:TextBlock FontSize="12" TextWrapping="Wrap"
+                                  Text="• Es schliesst keinen Tag in der Zeiterfassung ab. Der Tagesabschluss bleibt eine Entscheidung in TANSS." />
+                    <ui:TextBlock FontSize="12" TextWrapping="Wrap"
+                                  Text="• Es bucht nichts von selbst. Jede Leistung entsteht, weil jemand sie geschrieben und bestätigt hat." />
+                    <ui:TextBlock FontSize="12" TextWrapping="Wrap"
+                                  Text="• Es übermittelt nichts nach draussen, solange die Sprachmodell-Unterstützung aus ist. Feiertage und Postleitzahl sind die Ausnahme — dorthin gehen ein Jahr, ein Länderkürzel und eine Postleitzahl, sonst nichts." />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

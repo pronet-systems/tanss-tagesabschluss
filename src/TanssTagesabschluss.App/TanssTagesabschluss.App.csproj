@@ -1,0 +1,55 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <!--
+      Versioniertes Windows-Ziel, und zwar auf derselben Nummer wie die Untergrenze.
+      Das schlichte "net10.0-windows" steht fuer Plattformstand 7.0; ein
+      SupportedOSPlatformVersion von 10.0.19041.0 darueber ist dann hoeher als das Ziel und
+      ergibt NETSDK1135 - nachgemessen, nicht vermutet. Beide Zahlen gleich zu setzen haelt
+      die Zusage auf Windows 10 (2004) und erspart das Auseinanderlaufen.
+    -->
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>TanssTagesabschluss.App</RootNamespace>
+    <AssemblyName>TanssTagesabschluss</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Platforms>x64</Platforms>
+    <!-- Deutsche Oberflaeche: die invariante Globalisierung wuerde Datums- und
+         Zahlenformate auf en-US zwingen - und dieses Werkzeug zeigt fast nur Datums- und
+         Zeitangaben. -->
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Der Zugang zu Anthropic. Der zweite Anbieter (OpenAI) laeuft ueber HttpClient und
+         braucht kein Paket - siehe Ai/OpenAiAssistant.cs. -->
+    <PackageReference Include="Anthropic" Version="12.47.0" />
+    <PackageReference Include="H.NotifyIcon.Wpf" Version="2.4.1" />
+    <PackageReference Include="WPF-UI" Version="4.3.0" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets/tray.ico" />
+    <Resource Include="Assets/pronet-logo.png" />
+    <!-- Zusaetzlich als Anwendungssymbol: Ohne das traegt die .exe das
+         Vorgabesymbol von Windows, und im Startmenue ist sie nicht
+         wiederzuerkennen. -->
+    <None Include="Assets/tray.ico" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <ApplicationIcon>Assets/tray.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TanssTagesabschluss.Api\TanssTagesabschluss.Api.csproj" />
+    <ProjectReference Include="..\TanssTagesabschluss.Storage\TanssTagesabschluss.Storage.csproj" />
+    <ProjectReference Include="..\TanssTagesabschluss.Workday\TanssTagesabschluss.Workday.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="TanssTagesabschluss.App.Tests" />
+  </ItemGroup>
+</Project>

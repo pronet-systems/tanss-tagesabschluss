@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/TanssTagesabschluss.Api/TanssTagesabschluss.Api.csproj" />
+    <Project Path="src/TanssTagesabschluss.App/TanssTagesabschluss.App.csproj" />
+    <Project Path="src/TanssTagesabschluss.Storage/TanssTagesabschluss.Storage.csproj" />
+    <Project Path="src/TanssTagesabschluss.Workday/TanssTagesabschluss.Workday.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/TanssTagesabschluss.Api.Tests/TanssTagesabschluss.Api.Tests.csproj" />
+    <Project Path="tests/TanssTagesabschluss.App.Tests/TanssTagesabschluss.App.Tests.csproj" />
+    <Project Path="tests/TanssTagesabschluss.Live.Tests/TanssTagesabschluss.Live.Tests.csproj" />
+    <Project Path="tests/TanssTagesabschluss.Storage.Tests/TanssTagesabschluss.Storage.Tests.csproj" />
+    <Project Path="tests/TanssTagesabschluss.Workday.Tests/TanssTagesabschluss.Workday.Tests.csproj" />
+  </Folder>
+</Solution>

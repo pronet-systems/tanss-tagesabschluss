@@ -1,0 +1,150 @@
+{
+  // Beispielkonfiguration für TANSS Tagesabschluss.
+  //
+  // Die gültige Datei liegt unter
+  //   %APPDATA%\ProNet Systems\TanssTagesabschluss\config.json
+  // und entsteht üblicherweise über die Seite „Einstellungen“. Diese Datei hier ist die
+  // Erklärung dazu — von Hand pflegen muss sie niemand.
+  //
+  // ZWEI DINGE VORWEG:
+  //
+  // 1. Unbekannte Felder werden ABGELEHNT. Eine vertippte Einstellung, die stillschweigend
+  //    ignoriert wird, ist schlimmer als ein Fehler: Wer sie schreibt, hält sie für wirksam.
+  //    Fehlende Abschnitte sind dagegen in Ordnung und bekommen die Vorgaben.
+  //
+  // 2. Hier stehen KEINE Geheimnisse, nur Verweise darauf. Das Arbeitstoken liegt
+  //    DPAPI-verschlüsselt im lokalen Profil, an Benutzer UND Rechner gebunden — diese Datei
+  //    lässt sich also weitergeben, ohne einen Zugang mitzugeben.
+  //
+  // Kommentare und nachgestellte Kommata sind beim Lesen erlaubt. Beim nächsten Speichern
+  // über die Oberfläche sind sie fort.
+
+  "version": 1,
+
+  "tanss": {
+    // MUSS auf /backend enden. Zeigt die Adresse auf die TANSS-Weboberfläche, antwortet
+    // diese auf JEDE Anfrage mit HTTP 400 — auch ohne Token —, und der Fehler sieht wie ein
+    // Programmfehler aus statt wie eine falsche Adresse.
+    "base_url": "https://tanss.beispiel.de/backend",
+
+    // An dieser Kennung hängt alles: Sie entscheidet, WESSEN Arbeitszeiten gelesen und wessen
+    // Lücken gezeigt werden. Steht hier die falsche, prüft das Werkzeug klaglos den Tag eines
+    // Kollegen. Die Anmeldung setzt sie selbst.
+    "employee_id": 1,
+
+    // Verweis, nicht Geheimnis.
+    "token_ref": "dpapi:credentials",
+
+    // Ab wie vielen Resttagen das Token erneuert wird. Großzügig: Wer drei Wochen im Urlaub
+    // war, soll sein Werkzeug starten können, ohne sich neu anzumelden.
+    "rotate_before_days": 60,
+
+    // NUR für eine Testinstanz im eigenen Netz abschaltbar — und auch dort nur, bis das
+    // Zertifikat im Rechnerspeicher liegt. Abgeschaltet ist die Verbindung gegen einen
+    // Angreifer in der Mitte wertlos.
+    "verify_tls": true,
+
+    "timeout_seconds": 30
+  },
+
+  "company": {
+    // Die eigene Firma. Sie wird gebraucht, um aus der Postleitzahl das Bundesland zu
+    // bestimmen — und daraus die gesetzlichen Feiertage. Ohne Bundesland erscheint an einem
+    // Feiertag ohne Zeiterfassung ein Hinweis, der keiner sein müsste.
+    //
+    // Ermitteln lässt sie sich unter „Einstellungen“; von Hand geht ebenso.
+    "own_company_id": 0,
+    "own_company_name": null,
+    "postal_code": null,
+
+    // Kürzel des Bundeslands: BW BY BE BB HB HH HE MV NI NW RP SL SN ST SH TH
+    "federal_state": null,
+
+    // Auf true gesetzt, wird das Bundesland NICHT mehr selbsttätig überschrieben. Wer eine
+    // Niederlassung in einem anderen Bundesland betreut als die, in der die Firma gemeldet
+    // ist, hat dafür einen Grund.
+    "federal_state_is_manual": false
+  },
+
+  "gaps": {
+    // Kürzere Zeitfenster stehen nicht in der Liste. Fünfzehn Minuten, weil das in TANSS die
+    // übliche Abrechnungseinheit ist — und weil ohne Schwelle dreissig Einträge von je vier
+    // Minuten in der Liste stünden und die eine Stunde, um die es geht, darin unterginge.
+    "minimum_minutes": 15,
+
+    // Gilt ein nur regional geltender Feiertag als freier Tag? Betrifft Fronleichnam in
+    // Sachsen und Thüringen, Mariä Himmelfahrt in Bayern, das Augsburger Friedensfest.
+    //
+    // true ist die vorsichtigere Richtung: Wer den Tag wirklich frei hat, wird nicht jedes
+    // Jahr gemahnt. Auf die Lücken selbst wirkt es ohnehin nicht — wer an dem Tag arbeitet
+    // und stempelt, bekommt seine Lücken wie an jedem anderen Tag.
+    "conditional_holiday_is_day_off": true,
+
+    // Wie weit der Überblick zurückreicht.
+    "history_days": 14
+  },
+
+  "reminder": {
+    // MORGENS geht es um GESTERN: Der Tag ist vorbei, die Zeiten stehen fest, was fehlt,
+    // fehlt endgültig.
+    "morning_enabled": true,
+    "morning_time": "08:30",
+
+    // ABENDS geht es um HEUTE: Noch ist der Techniker da und weiß, was er getan hat. Das ist
+    // der wertvollere Zeitpunkt — kurz VOR Feierabend, nicht danach.
+    "evening_enabled": true,
+    "evening_time": "16:45",
+
+    // Eine Meldung „alles in Ordnung“, die jeden Tag erscheint, wird nach einer Woche
+    // weggeklickt — und dann auch die, bei der etwas dransteht.
+    "only_when_something_is_open": true
+  },
+
+  "ai": {
+    // HIER VERLÄSST ZUM ERSTEN MAL TEXT DAS HAUS. Alles Übrige in diesem Werkzeug spricht mit
+    // der TANSS-Instanz und zwei öffentlichen Diensten, denen nur ein Jahr, ein Länderkürzel
+    // und eine Postleitzahl mitgeteilt wird.
+    //
+    // Eingeschaltet geht der Leistungstext an einen Anbieter — mit allem, was darin steht.
+    // Deshalb: standardmässig aus, ausdrückliche Einwilligung, eigener Schlüssel.
+    "enabled": false,
+
+    // "anthropic" oder "openai".
+    "provider": "anthropic",
+
+    // Leer, solange keines gewählt wurde. Die Auswahl kommt aus der Modellliste des Anbieters
+    // und steht bewusst nicht fest im Programm: Modelle kommen und gehen.
+    "model": "",
+
+    // Verweis, nicht Geheimnis.
+    "key_ref": "dpapi:ai",
+
+    // Ohne Einwilligung wird nichts übermittelt.
+    "consent_given_at": null,
+    "consent_by": null,
+
+    // Die Anweisungen an das Modell. Leer heißt: die eingebauten Texte.
+    //
+    // Bearbeitbar sind Rolle und die beiden Aufträge — wie ein Leistungstext klingen soll,
+    // weiß der Betrieb und nicht dieses Werkzeug. NICHT bearbeitbar sind vier Regeln, die
+    // beim Senden angehängt werden: nichts erfinden, keine Zahlen und Namen ändern, die
+    // Sprache behalten, ausschliesslich mit dem Text antworten. Die ersten beiden sind die
+    // Zusage, auf die hin eingewilligt wurde.
+    "role_prompt": null,
+    "proofread_prompt": null,
+    "improve_prompt": null
+  },
+
+  "proxy": {
+    "enabled": false,
+    "address": "",
+    "port": 8080,
+    "user": null,
+    "password_ref": "dpapi:proxy"
+  },
+
+  "logging": {
+    // Trace, Debug, Information, Warning, Error, Critical, None
+    "level": "Information"
+  }
+}

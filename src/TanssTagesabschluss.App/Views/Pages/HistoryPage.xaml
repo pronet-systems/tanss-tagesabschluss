@@ -1,0 +1,117 @@
+<Page x:Class="TanssTagesabschluss.App.Views.Pages.HistoryPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+      xmlns:design="clr-namespace:TanssTagesabschluss.App.Design"
+      Style="{StaticResource PageSurface}"
+      Title="Überblick">
+
+    <Grid Margin="{StaticResource PagePadding}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0">
+                <ui:TextBlock Text="Überblick" FontTypography="Title" />
+                <!-- Diese Seite beantwortet eine andere Frage als die Tagesansicht: nicht
+                     „was fehlt an diesem Tag“, sondern „welcher Tag verdient einen Blick“. -->
+                <ui:TextBlock Text="Welche der letzten Tage sind noch offen. Ein Klick öffnet den Tag."
+                              Margin="0,4,0,0" TextWrapping="Wrap"
+                              Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top"
+                        design:Spacing.Size="8">
+                <!-- Vorgabe „nur offene“: Eine Liste mit vierzehn Zeilen, von denen zwei etwas
+                     bedeuten, wird überflogen; eine mit zwei Zeilen wird gelesen. -->
+                <CheckBox Content="nur offene" IsChecked="{Binding OnlyOpen, Mode=TwoWay}"
+                          VerticalAlignment="Center" />
+                <ui:Button Icon="{ui:SymbolIcon ArrowSync24}" Content="Neu laden"
+                           Command="{Binding ReloadCommand}" />
+            </StackPanel>
+        </Grid>
+
+        <StackPanel Grid.Row="1" Margin="0,0,0,12" design:Spacing.Size="8">
+            <ui:TextBlock Text="{Binding Summary}" FontTypography="BodyStrong" TextWrapping="Wrap" />
+
+            <ui:InfoBar Severity="Error" IsClosable="False" IsOpen="True"
+                        Title="Nicht geladen" Message="{Binding Error}"
+                        Visibility="{Binding Error, Converter={StaticResource NullToCollapsed}}" />
+
+            <ui:ProgressRing IsIndeterminate="True" Width="28" Height="28"
+                             HorizontalAlignment="Left"
+                             Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}" />
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto"
+                      Visibility="{Binding HasDays, Converter={StaticResource BoolToVis}}">
+            <ItemsControl ItemsSource="{Binding Days}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Style="{StaticResource CardBorder}" Margin="0,0,0,8">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="120" />
+                                    <ColumnDefinition Width="160" />
+                                    <ColumnDefinition Width="130" />
+                                    <ColumnDefinition Width="110" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <ui:TextBlock Grid.Column="0" Text="{Binding DateText}"
+                                              Style="{StaticResource TabularText}"
+                                              FontTypography="BodyStrong" />
+
+                                <!-- Der Zustand steht als Text in der Pille, nicht nur als
+                                     Farbe: Der Unterschied muss auch ohne Farbe lesbar sein. -->
+                                <Border Grid.Column="1" HorizontalAlignment="Left">
+                                    <Border.Style>
+                                        <Style TargetType="Border" BasedOn="{StaticResource StatePill}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsOpen}" Value="True">
+                                                    <Setter Property="Background" Value="{DynamicResource GapOpenBrush}" />
+                                                    <Setter Property="BorderThickness" Value="0" />
+                                                    <Setter Property="TextElement.Foreground" Value="{DynamicResource StateOnColorBrush}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <ui:TextBlock Text="{Binding Verdict}" FontSize="11" />
+                                </Border>
+
+                                <ui:TextBlock Grid.Column="2" Text="{Binding GapText}"
+                                              Style="{StaticResource TabularText}"
+                                              ToolTip="Anzahl der Lücken und ihre Summe" />
+
+                                <ui:TextBlock Grid.Column="3" Text="{Binding AttendanceText}"
+                                              Style="{StaticResource TabularText}"
+                                              ToolTip="Anwesende Zeit nach der Zeiterfassung"
+                                              Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+
+                                <ui:TextBlock Grid.Column="4" VerticalAlignment="Center"
+                                              Margin="8,0,12,0" FontSize="12"
+                                              Text="{Binding Analysis.HolidayName}"
+                                              Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+
+                                <ui:Button Grid.Column="5" Content="Öffnen"
+                                           Icon="{ui:SymbolIcon Open24}"
+                                           Command="{Binding DataContext.OpenCommand,
+                                                     RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                           CommandParameter="{Binding}" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+    </Grid>
+</Page>

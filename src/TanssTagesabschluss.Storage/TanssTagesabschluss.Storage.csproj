@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- Windows-Ziel, weil DPAPI (ProtectedData) daran haengt: Das Token ist an Benutzer
+         UND Rechner gebunden, und genau das leistet nur Windows. -->
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>TanssTagesabschluss.Storage</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TanssTagesabschluss.Api\TanssTagesabschluss.Api.csproj" />
+    <ProjectReference Include="..\TanssTagesabschluss.Workday\TanssTagesabschluss.Workday.csproj" />
+  </ItemGroup>
+</Project>

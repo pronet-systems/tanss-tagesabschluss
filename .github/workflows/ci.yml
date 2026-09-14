@@ -1,0 +1,106 @@
+# ---------------------------------------------------------------------------
+#  Der blockierende Lauf: jeder Push, jeder Pull Request.
+#
+#  Er bleibt bewusst schmal. Alles, was hier Minuten kostet, kostet sie bei
+#  jedem einzelnen Commit. Veröffentlichen, Setup packen und Signieren
+#  gehören deshalb nicht hierher, sondern in release.yml.
+# ---------------------------------------------------------------------------
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+# Jeder Push und jeder Pull Request. Das kostet bei einem Zweig, für den ein
+# Pull Request offen ist, zwei Läufe statt einem. Gewollt: Rückmeldung soll es
+# auch geben, bevor jemand einen Pull Request aufmacht. Wer lieber die Hälfte
+# der Minuten verbraucht, schränkt "push" auf den Zweig main ein.
+
+# Ein neuer Push auf denselben Zweig macht den vorigen Lauf gegenstandslos.
+# Ohne das stehen bei schneller Folge drei Läufe in der Warteschlange, von
+# denen nur der letzte jemanden interessiert.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: 'true'
+  DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+  # Englische Werkzeugmeldungen im Protokoll - anders als in der Anwendung, wo
+  # Deutsch Pflicht ist: eine Compilermeldung sucht man im Netz, und dort steht
+  # sie englisch. Die Sprache der Anwendung selbst berührt das nicht.
+  DOTNET_CLI_UI_LANGUAGE: 'en'
+  # Der Paketzwischenspeicher liegt im Arbeitsverzeichnis statt unter ~, damit
+  # actions/cache einen Pfad bekommt, der auf jedem Läufer gleich heißt.
+  NUGET_PACKAGES: ${{ github.workspace }}\.nuget-packages
+
+jobs:
+  solution:
+    name: Projektmappe bauen und testen
+    # windows-latest zeigt derzeit auf Windows Server 2025 (nachgesehen im
+    # Verzeichnis der Läuferabbilder, 09/2026). Windows ist Pflicht: die
+    # Zielplattform ist net10.0-windows10.0.26100.0, die Überwachung ist Win32.
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Quelltext holen
+        uses: actions/checkout@v7
+
+      - name: .NET 10 einrichten
+        uses: actions/setup-dotnet@v6
+        with:
+          # Die Läuferabbilder bringen bereits mehrere 10.0-SDKs mit; dieser
+          # Schritt legt trotzdem das jeweils neuere nach und macht den Lauf
+          # unabhängig davon, was das Abbild gerade enthält.
+          dotnet-version: '10.0.x'
+          # Kein "cache: true": das setzt eine packages.lock.json voraus, die
+          # dieses Projekt nicht führt. Der Zwischenspeicher kommt darunter.
+
+      - name: Paketzwischenspeicher
+        uses: actions/cache@v6
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', 'Directory.Build.props') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Pakete wiederherstellen
+        run: dotnet restore TanssTagesabschluss.slnx
+
+      - name: Übersetzen
+        # -warnaserror doppelt zur Sicherheit: TreatWarningsAsErrors steht
+        # bereits in Directory.Build.props. Wer die Eigenschaft dort einmal
+        # abschaltet, um lokal weiterzukommen, soll es hier trotzdem merken.
+        run: dotnet build TanssTagesabschluss.slnx -c Release --no-restore -warnaserror
+
+      - name: Tests
+        run: >-
+          dotnet test TanssTagesabschluss.slnx -c Release --no-build
+          --logger "trx;LogFilePrefix=TanssTagesabschluss"
+          --results-directory artifacts/test-results
+
+      - name: Testergebnisse sichern
+        # Auch und gerade bei rotem Lauf: dann will man die .trx lesen.
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: testergebnisse
+          path: artifacts/test-results/*.trx
+          if-no-files-found: error
+          retention-days: 14
+
+# ANMERKUNG ZUM WEGGEFALLENEN AUFTRAG "Oberflaeche uebersetzen".
+#
+# Das Schwesterprojekt hat dafuer einen zweiten Auftrag, weil seine Oberflaeche
+# bewusst NICHT in der Projektmappe steht und sonst erst beim Veroeffentlichen
+# uebersetzt wuerde - also an dem Tag, an dem eine Marke gesetzt ist und es
+# eilig wird.
+#
+# Hier steht TanssTagesabschluss.App in der Projektmappe. Der Auftrag oben
+# uebersetzt sie damit ohnehin, und zwar mit -warnaserror. Ein zweiter Auftrag
+# taete dieselbe Arbeit ein zweites Mal und meldete dasselbe Ergebnis - das
+# kostet Laufzeit und stiftet Verwirrung, sobald die beiden einmal
+# auseinanderlaufen.

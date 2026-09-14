@@ -1,0 +1,12 @@
+bin/
+obj/
+artifacts/
+.vs/
+*.user
+config.json
+credentials.dat
+credentials.dat.bak
+ai.dat
+proxy.dat
+*.pfx
+*.log
