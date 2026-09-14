@@ -8,13 +8,18 @@ folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## Unveröffentlicht
 
+## 0.2.0 — 2026-09-14
+
+Ein Zeitfenster ist selten eine einzige Tätigkeit. Diese Version macht aus einer Lücke so viele
+Leistungen, wie darin stecken.
+
 ### Neu
 
 - **Ein Zeitfenster lässt sich teilen.** Neun offene Stunden am Stück sind fast nie neun
   Stunden an derselben Sache — dazwischen lagen ein Anruf, ein Kunde, eine Stunde am eigenen
   Server. Bisher blieb nur, alles in *einen* Leistungstext zu schreiben und auf *ein* Ticket zu
   buchen; erfasst war es dann, auf der Rechnung des Kunden aber nicht mehr auseinanderzuhalten.
-  Neben jeder Lücke steht jetzt die Dauer des ersten Teils und ein „Teilen". Jeder Teil bekommt
+  Neben jeder Lücke steht jetzt, wann der erste Teil endet, und ein „Teilen". Jeder Teil bekommt
   eigenen Text, eigene Firma, eigenes Ticket und eigenes Gerät; ein Teil lässt sich wieder
   teilen.
   Der erste Teil erbt, was schon getippt oder gewählt war — wer teilt, hat den Anfang im Sinn.
@@ -30,7 +35,9 @@ folgen [Semantic Versioning](https://semver.org/lang/de/).
   Reihenfolge des Tages, jeweils mit Vorschau. Gefragt wird nur, wenn es etwas zu entscheiden
   gibt; wer abbricht, lässt die beiden Fenster, wie sie waren.
 - **Die Teilungsstelle ist eine Uhrzeit, keine Dauer.** Wer aufteilt, weiss, wann er beim einen
-  Kunden aufgehört hat, nicht wie viele Minuten das waren.
+  Kunden aufgehört hat, nicht wie viele Minuten das waren. Der Beginn bleibt fest: Ihn nach
+  hinten zu schieben hiesse, den Anfang der Lücke verfallen zu lassen — und genau diese Zeit zu
+  finden ist der Zweck dieses Werkzeugs.
 
 ## 0.1.0 — 2026-09-14
 

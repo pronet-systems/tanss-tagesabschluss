@@ -1,4 +1,4 @@
-<Project>
+﻿<Project>
   <PropertyGroup>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
@@ -15,7 +15,7 @@
     <Copyright>Copyright (c) 2026 ProNet Systems GmbH</Copyright>
     <!-- Eine Quelle der Wahrheit fuer die Fassung; dieselbe Schreibweise wie im
          Schwesterprojekt, damit ein Setup-Skript die Zeile findet. -->
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <FileVersion>$([System.Text.RegularExpressions.Regex]::Match($(Version), "^\d+(\.\d+){0,2}").Value).0</FileVersion>
     <InformationalVersion>$(Version)</InformationalVersion>
     <!-- Deutsche Oberflaeche, deutsche Fehlertexte: keine InvariantGlobalization. -->

@@ -23,13 +23,14 @@ Dieses Werkzeug legt beide Seiten übereinander und zeigt, was dazwischen offen 
 
 | | |
 |---|---|
-| **Liest die Zeiterfassung** | Kommen, Gehen, Pausenbeginn, Pausenende — samt Arbeitszeitmodell des Tages. |
+| **Liest die Zeiterfassung** | Kommen, Gehen, Pausenbeginn, Pausenende — und den erwarteten Arbeitsrahmen aus den Einstellungen. |
 | **Liest die Leistungen** | Alles, was im Zeitraum erfasst ist, einschliesslich Termine und Abwesenheiten. |
 | **Liest Urlaub und Krankheit** | Genehmigte Abwesenheiten erklären eine fehlende Leistung, auch halbtags. |
 | **Kennt die Feiertage** | Des maßgeblichen Bundeslands, bestimmt aus der Postleitzahl der eigenen Firma. |
 | **Rechnet die Lücken** | Anwesenheit minus erfasste Leistungen minus Abwesenheiten. |
 | **Erinnert zweimal am Tag** | Morgens an den Vortag, abends vor Feierabend an den laufenden Tag. |
-| **Trägt nach** | Direkt aus der Liste: Text, Ticket, Gerät, intern — mit Existenzprüfung davor. |
+| **Trägt nach** | Direkt aus der Liste: Text, Firma, Ticket, Gerät, intern — mit Existenzprüfung davor. |
+| **Teilt ein Zeitfenster** | Eine offene Stunde war selten eine Sache. Teilen an einer Uhrzeit, wieder zusammenfügen, Text nach Rückfrage. |
 | **Formuliert auf Wunsch aus** | Sprachmodell-Unterstützung für Korrektur und Ausformulierung; standardmässig aus. |
 
 ## Was es ausdrücklich **nicht** tut
@@ -215,11 +216,14 @@ Ein Setup entsteht mit `build\publish.ps1`; Einzelheiten in
 
 ## Stand der Umsetzung
 
-**Fertig und geprüft (156 Tests):**
+**Fertig und geprüft (174 Tests):**
 
 - Die Lückenrechnung samt Grenzfällen: Pause, halber Urlaubstag, Feiertag, laufender Tag,
   vergessener Tag, bedingter Feiertag, Home-Office, zu spät eingestempelt.
 - Die Mengenlehre darunter (`TimeSegment`) — halboffene Intervalle, Verschmelzen, Abziehen.
+- Das Teilen und Zusammenfügen eines Zeitfensters: die Grenzen (kein Schnitt auf dem Anfang
+  oder dem Ende), dass nur unmittelbar benachbarte Fenster zusammenfinden, und welcher
+  Leistungstext dabei überlebt.
 - Der Riegel gegen doppelt gebuchte Leistungen, einschliesslich des Falls „Prüfung selbst
   fehlgeschlagen“, und die Zuordnung, ohne die TANSS eine Leistung ablehnt.
 - Die Prüfung der Konfiguration und das Lesen/Schreiben der Datei.
