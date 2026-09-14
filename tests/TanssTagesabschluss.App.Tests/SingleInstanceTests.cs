@@ -43,13 +43,22 @@ public sealed class SingleInstanceTests
     [Fact]
     public void Eine_zweite_Instanz_erreicht_die_erste()
     {
-        using SingleInstance first = SingleInstance.Acquire();
-
         using ManualResetEventSlim asked = new(initialState: false);
-        first.ListenForSecondStart(() => asked.Set());
 
-        Assert.True(SingleInstance.AskRunningInstanceToShow());
-        Assert.True(asked.Wait(TimeSpan.FromSeconds(5)));
+        using (SingleInstance first = SingleInstance.Acquire())
+        {
+            first.ListenForSecondStart(() => asked.Set());
+
+            Assert.True(SingleInstance.AskRunningInstanceToShow());
+            Assert.True(asked.Wait(TimeSpan.FromSeconds(5)));
+        }
+
+        // NACH dem Freigeben darf das Signal nicht mehr zu finden sein. Sonst hielte ein
+        // frisch gestartetes Werkzeug eine laengst beendete Instanz fuer laufend und beendete
+        // sich still -- wer die Anwendung schliesst und sofort wieder startet, saehe kein
+        // Fenster. Genau daran ist die Pruefung einmal gescheitert, weil Unregister(null)
+        // nicht wartet.
+        Assert.False(SingleInstance.AskRunningInstanceToShow());
     }
 
     [Fact]

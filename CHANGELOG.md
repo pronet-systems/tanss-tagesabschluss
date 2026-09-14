@@ -10,6 +10,11 @@ folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Behoben
 
+- **Nach dem Beenden startete das Werkzeug unter Umständen nicht mehr.** Beim Freigeben wurde
+  auf das Abmelden der Signalüberwachung nicht gewartet; das benannte Ereignis lebte noch kurz
+  weiter. Ein sofort danach gestartetes Werkzeug fand es, hielt die längst beendete Instanz für
+  laufend und beendete sich still — wer schliesst und gleich wieder startet, sah kein Fenster.
+  Aufgefallen in der Prüfung, nicht im Betrieb.
 - **Das Anlegen einer Leistung schlug immer fehl.** TANSS bereitet eine Leistung mit
   `linkTypeId = 0` und `linkId = 0` vor — aus einem Ticket genauso wie aus einer Firma. Wer
   diesen Entwurf unverändert anlegt, bekommt HTTP 404 mit `SupportMissingAssignmentException`

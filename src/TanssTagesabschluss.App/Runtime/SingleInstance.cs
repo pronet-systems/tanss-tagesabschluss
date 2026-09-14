@@ -127,6 +127,18 @@ public sealed class SingleInstance : IDisposable
     }
 
     /// <summary>Gibt Mutex und Signal frei.</summary>
+    /// <remarks>
+    /// <para><b>Auf das Abmelden wird gewartet, und das ist kein Feinschliff.</b>
+    /// <c>Unregister(null)</c> kehrt sofort zurück; der Vorrat hält seine eigene Kopie des
+    /// Signals noch, bis die Abmeldung wirklich durch ist. Solange lebt das <b>benannte</b>
+    /// Ereignis im Kern weiter — und ein frisch gestartetes Werkzeug fände es, hielte eine
+    /// längst beendete Instanz für laufend und beendete sich still. Wer die Anwendung schliesst
+    /// und sofort wieder startet, sähe schlicht kein Fenster.</para>
+    /// <para>Gefallen ist das in der Prüfung: Zwei Prüfungen in derselben Sitzung, und die
+    /// zweite fand das Signal der ersten noch vor.</para>
+    /// <para><b>Mit Frist.</b> Hängt ein Rückruf, ist das Beenden wichtiger als das saubere
+    /// Abmelden — zwei Sekunden sind mehr, als ein Rückruf hier je braucht.</para>
+    /// </remarks>
     public void Dispose()
     {
         if (_disposed)
@@ -136,7 +148,16 @@ public sealed class SingleInstance : IDisposable
 
         _disposed = true;
 
-        _registration?.Unregister(waitObject: null);
+        if (_registration is { } registration)
+        {
+            using ManualResetEvent unregistered = new(initialState: false);
+
+            if (registration.Unregister(unregistered))
+            {
+                unregistered.WaitOne(TimeSpan.FromSeconds(2));
+            }
+        }
+
         _activate?.Dispose();
         _mutex.Dispose();
     }
