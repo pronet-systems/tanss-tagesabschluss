@@ -127,6 +127,7 @@
                                                 <ColumnDefinition Width="Auto" />
                                                 <ColumnDefinition Width="*" />
                                                 <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
 
                                             <ui:TextBlock Grid.Column="0" Text="{Binding Time}"
@@ -150,7 +151,31 @@
                                                           ToolTip="{Binding Context}"
                                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
 
-                                            <ui:SymbolIcon Grid.Column="3" Symbol="CheckmarkCircle24"
+                                            <!-- Teilen. Neun offene Stunden am Stueck sind
+                                                 fast nie neun Stunden an derselben Sache;
+                                                 ohne Teilen bliebe nur, alles in EINEN
+                                                 Leistungstext zu schreiben und auf EIN Ticket
+                                                 zu buchen. Auf der Rechnung des Kunden waere
+                                                 das nicht mehr auseinanderzuhalten. -->
+                                            <StackPanel Grid.Column="3" Orientation="Horizontal"
+                                                        VerticalAlignment="Center"
+                                                        Margin="12,0,12,0"
+                                                        Visibility="{Binding CanBook, Converter={StaticResource BoolToVis}}">
+                                                <ui:NumberBox Value="{Binding SplitMinutes, Mode=TwoWay}"
+                                                              Minimum="1"
+                                                              Maximum="{Binding TotalMinutes}"
+                                                              SpinButtonPlacementMode="Compact"
+                                                              MinWidth="96" Margin="0,0,8,0"
+                                                              ToolTip="Wie viele Minuten auf den ersten Teil entfallen." />
+
+                                                <ui:Button Icon="{ui:SymbolIcon SplitHorizontal24}"
+                                                           Content="Teilen"
+                                                           Appearance="Secondary"
+                                                           Command="{Binding SplitCommand}"
+                                                           ToolTip="Teilt dieses Zeitfenster in zwei, damit sich zwei verschiedene T&#228;tigkeiten getrennt erfassen lassen." />
+                                            </StackPanel>
+
+                                            <ui:SymbolIcon Grid.Column="4" Symbol="CheckmarkCircle24"
                                                            FontSize="18"
                                                            Foreground="{DynamicResource GapCoveredBrush}"
                                                            Visibility="{Binding IsDone, Converter={StaticResource BoolToVis}}" />

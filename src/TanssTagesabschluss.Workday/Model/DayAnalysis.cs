@@ -119,6 +119,40 @@ public sealed record Gap(TimeSegment Segment, SupportEntry? Before, SupportEntry
                     ? onlyAfter
                     : 0;
 
+    /// <summary>
+    /// Teilt die Lücke an einer Stelle in zwei.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Ein Zeitfenster ist selten eine einzige Tätigkeit.</b> Neun offene Stunden am
+    /// Stück sind fast nie neun Stunden an derselben Sache — dazwischen lagen ein Anruf, ein
+    /// Kunde, eine Stunde am eigenen Server. Ohne Teilen bliebe nur, das alles in <i>einen</i>
+    /// Leistungstext zu schreiben und auf <i>ein</i> Ticket zu buchen. Das ist zwar erfasst,
+    /// aber es ist auf der Rechnung des Kunden nicht mehr auseinanderzuhalten.</para>
+    ///
+    /// <para><b>Die Nachbarinnen wandern mit, und zwar jede zu ihrer Seite.</b> Der ersten
+    /// Hälfte bleibt die Leistung davor, der zweiten die danach; nach innen hat keine der
+    /// beiden eine Nachbarin, denn dort steht die jeweils andere Hälfte und trägt noch nichts.
+    /// Damit fällt auch der Ticketvorschlag weg, wo er nicht mehr trägt — geraten wird beim
+    /// Kunden nicht.</para>
+    /// </remarks>
+    /// <param name="first">Die Dauer des ersten Teils.</param>
+    /// <returns>
+    /// Die beiden Teile, oder <see langword="null"/>, wenn sich dort nicht teilen lässt —
+    /// bei null, bei negativer Dauer und bei allem, was nicht kürzer als die Lücke ist.
+    /// </returns>
+    public (Gap First, Gap Second)? SplitAfter(TimeSpan first)
+    {
+        if (first <= TimeSpan.Zero || first >= Duration)
+        {
+            return null;
+        }
+
+        DateTimeOffset cut = Start + first;
+
+        return (new Gap(new TimeSegment(Start, cut), Before, After: null),
+                new Gap(new TimeSegment(cut, End), Before: null, After));
+    }
+
     /// <summary>Die Lücke in einer Zeile.</summary>
     /// <returns>Etwa <c>09:15–10:00 (45 min)</c>.</returns>
     public override string ToString() => string.Create(CultureInfo.CurrentCulture,

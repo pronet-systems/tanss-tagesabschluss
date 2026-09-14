@@ -42,6 +42,12 @@ public sealed partial class DayViewModel : ObservableObject
     /// </remarks>
     private readonly Dictionary<int, IReadOnlyList<DeviceRow>> _devicesByCompany = [];
 
+    /// <summary>Woher die Zeilen ihre Auswahllisten nehmen; steht ab dem ersten Laden.</summary>
+    private GapCatalog? _catalog;
+
+    /// <summary>Der Zusammenbau des letzten Ladevorgangs — für nachträglich gebaute Zeilen.</summary>
+    private RuntimeComposition? _composition;
+
     private CancellationTokenSource? _running;
 
     /// <summary>
@@ -266,27 +272,28 @@ public sealed partial class DayViewModel : ObservableObject
 
         // Einer fuer alle Zeilen: Die Suchfunktion ist zustandslos, und der Zwischenspeicher
         // der Geraete liegt ohnehin hier. Ein Katalog je Luecke brachte nichts ausser Arbeit.
-        GapCatalog catalog = new(
+        // Gemerkt wird er, weil eine geteilte Luecke zwei neue Zeilen ergibt und die denselben
+        // Katalog brauchen -- der Tag wird dabei nicht neu geladen.
+        _catalog = new GapCatalog(
             tickets,
             (query, ct) => composition.Companies.SearchAsync(query, ct),
             (companyId, ct) => composition.Tickets.ListForCompanyAsync(companyId, ct),
             (companyId, ct) => DevicesAsync(composition, companyId, ct));
 
+        _composition = composition;
+
         // Jede Zeile haelt eine Abbruchmarke fuer die laufende Firmensuche. Beim Blaettern
         // durch eine Woche summiert sich das, wenn niemand sie freigibt.
         foreach (GapRow stale in Gaps)
         {
+            stale.SplitRequested -= OnSplitRequested;
             stale.Dispose();
         }
 
         Gaps.Clear();
         foreach (Gap gap in analysis.Gaps)
         {
-            Gaps.Add(new GapRow(
-                gap,
-                catalog,
-                (row, ct) => BookAsync(composition, row, ct),
-                _ai is null ? null : (text, task, ct) => ReviseAsync(text, task, ct)));
+            Gaps.Add(NewRow(gap));
         }
 
         Supports.Clear();
@@ -300,6 +307,68 @@ public sealed partial class DayViewModel : ObservableObject
         {
             Notes.Add(note);
         }
+
+        RaiseDerived();
+    }
+
+    /// <summary>Baut eine Lückenzeile und hängt sich an ihre Meldungen.</summary>
+    private GapRow NewRow(Gap gap)
+    {
+        GapRow row = new(
+            gap,
+            _catalog!,
+            (target, ct) => BookAsync(_composition!, target, ct),
+            _ai is null ? null : (text, task, ct) => ReviseAsync(text, task, ct));
+
+        row.SplitRequested += OnSplitRequested;
+        return row;
+    }
+
+    /// <summary>
+    /// Ersetzt eine Lücke durch ihre beiden Teile.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Warum an Ort und Stelle und nicht über ein Neuladen.</b> Die Lücke steht so in
+    /// TANSS gar nicht — sie ist eine Rechnung dieses Werkzeugs. Ein Neuladen brächte sie
+    /// ungeteilt zurück und dazu dreizehn Sekunden Wartezeit.</para>
+    ///
+    /// <para><b>Der erste Teil erbt, was schon getippt wurde.</b> Wer teilt, hat den Anfang der
+    /// Lücke im Sinn; was er bis dahin geschrieben oder gewählt hat, gehört dorthin. Der zweite
+    /// Teil fängt leer an — ihm denselben Text mitzugeben hiesse, zweimal dasselbe auf die
+    /// Rechnung des Kunden zu schreiben.</para>
+    ///
+    /// <para><b>Eine gebuchte Zeile wird nicht geteilt.</b> Die Leistung steht dann bereits in
+    /// TANSS; sie liesse sich von hier aus nicht zurücknehmen.</para>
+    /// </remarks>
+    private void OnSplitRequested(object? sender, TimeSpan first)
+    {
+        if (sender is not GapRow row || row.IsDone)
+        {
+            return;
+        }
+
+        int at = Gaps.IndexOf(row);
+        if (at < 0 || row.Gap.SplitAfter(first) is not { } parts)
+        {
+            return;
+        }
+
+        GapRow head = NewRow(parts.First);
+        GapRow tail = NewRow(parts.Second);
+
+        // Was der Techniker bereits eingetragen hat, gehoert zum ersten Teil.
+        head.Text = row.Text;
+        head.IsInternal = row.IsInternal;
+        head.CompanyQuery = row.CompanyQuery;
+        head.SelectedCompany = row.SelectedCompany;
+        head.SelectedTicket = row.SelectedTicket;
+        head.SelectedDevice = row.SelectedDevice;
+
+        row.SplitRequested -= OnSplitRequested;
+        row.Dispose();
+
+        Gaps[at] = head;
+        Gaps.Insert(at + 1, tail);
 
         RaiseDerived();
     }

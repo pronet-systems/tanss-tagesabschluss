@@ -8,6 +8,21 @@ folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## Unveröffentlicht
 
+### Neu
+
+- **Ein Zeitfenster lässt sich teilen.** Neun offene Stunden am Stück sind fast nie neun
+  Stunden an derselben Sache — dazwischen lagen ein Anruf, ein Kunde, eine Stunde am eigenen
+  Server. Bisher blieb nur, alles in *einen* Leistungstext zu schreiben und auf *ein* Ticket zu
+  buchen; erfasst war es dann, auf der Rechnung des Kunden aber nicht mehr auseinanderzuhalten.
+  Neben jeder Lücke steht jetzt die Dauer des ersten Teils und ein „Teilen". Jeder Teil bekommt
+  eigenen Text, eigene Firma, eigenes Ticket und eigenes Gerät; ein Teil lässt sich wieder
+  teilen.
+  Der erste Teil erbt, was schon getippt oder gewählt war — wer teilt, hat den Anfang im Sinn.
+  Die Leistung davor bleibt beim ersten Teil, die danach beim zweiten; nach innen schlägt keiner
+  von beiden mehr ein Ticket vor, denn dort steht die andere Hälfte und trägt noch nichts.
+  Geteilt wird an Ort und Stelle, ohne den Tag neu zu laden — die Lücke ist eine Rechnung dieses
+  Werkzeugs und steht so in TANSS gar nicht.
+
 ## 0.1.0 — 2026-09-14
 
 Die erste Version. Sie ist nie zuvor veröffentlicht worden; was während der Entwicklung

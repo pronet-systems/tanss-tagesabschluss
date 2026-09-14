@@ -297,6 +297,18 @@ public sealed partial class GapRow : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _isCompanyListOpen;
 
+    /// <summary>
+    /// Die Dauer des ersten Teils in Minuten, wenn diese Lücke geteilt wird.
+    /// </summary>
+    /// <remarks>
+    /// <b>Vorbelegt mit der Hälfte.</b> Ein Wert, der die ganze Lücke umfasst, liesse sich
+    /// nicht teilen und die Schaltfläche wäre von Anfang an grau — wer zum ersten Mal
+    /// hinsieht, hielte sie für kaputt. Die Hälfte ist ebenso willkürlich wie jeder andere
+    /// Vorschlag, aber sie ist immer gültig.
+    /// </remarks>
+    [ObservableProperty]
+    private int _splitMinutes;
+
     /// <summary>Baut die Zeile.</summary>
     /// <param name="gap">Die Lücke.</param>
     /// <param name="catalog">Woher Firmen, Tickets und Geräte kommen.</param>
@@ -325,6 +337,10 @@ public sealed partial class GapRow : ObservableObject, IDisposable
         }
 
         Devices.Add(DeviceRow.None);
+
+        // Die Haelfte, mindestens eine Minute: Bei einer Luecke von genau einer Minute gaebe
+        // die Haelfte 0, und die Schaltflaeche waere grau statt schlicht unmoeglich.
+        _splitMinutes = Math.Max(1, (int)(gap.Duration.TotalMinutes / 2));
 
         // Der Vorschlag kommt aus den Nachbarinnen und nur bei Einigkeit - siehe
         // Gap.SuggestedTicketId. Kein Vorschlag ist besser als ein geratener.
@@ -696,6 +712,44 @@ public sealed partial class GapRow : ObservableObject, IDisposable
     /// <summary>Lässt sich diese Zeile noch buchen?</summary>
     public bool CanBook => !IsBusy && !IsDone;
 
+    /// <summary>Die ganze Länge der Lücke in Minuten — die Obergrenze für das Teilen.</summary>
+    public int TotalMinutes => (int)_gap.Duration.TotalMinutes;
+
+    /// <summary>Lässt sich diese Lücke gerade teilen?</summary>
+    /// <remarks>
+    /// Beide Teile müssen übrig bleiben. Eine „Teilung“, bei der einer der beiden Teile leer
+    /// ist, wäre keine — sie hätte nur die Nachbarinnen weggeworfen.
+    /// </remarks>
+    public bool CanSplit => CanBook && SplitMinutes > 0 && SplitMinutes < TotalMinutes;
+
+    /// <summary>
+    /// Teilt diese Lücke in zwei — für zwei verschiedene Tätigkeiten.
+    /// </summary>
+    /// <remarks>
+    /// <b>Die Zeile führt das nicht selbst aus.</b> Sie kennt nur sich; das Ersetzen einer
+    /// Zeile durch zwei ist eine Sache der Liste, in der sie steht. Deshalb wird gemeldet und
+    /// nicht gehandelt — die Tagesansicht hört zu.
+    /// </remarks>
+    [RelayCommand]
+    private void Split()
+    {
+        if (!CanSplit)
+        {
+            return;
+        }
+
+        SplitRequested?.Invoke(this, TimeSpan.FromMinutes(SplitMinutes));
+    }
+
+    /// <summary>Meldet, dass diese Lücke an der genannten Stelle zu teilen ist.</summary>
+    public event EventHandler<TimeSpan>? SplitRequested;
+
+    partial void OnSplitMinutesChanged(int value)
+    {
+        OnPropertyChanged(nameof(CanSplit));
+        SplitCommand.NotifyCanExecuteChanged();
+    }
+
     /// <summary>Steht die Sprachmodell-Unterstützung zur Verfügung?</summary>
     /// <remarks>
     /// Steht sie nicht, werden die beiden Schaltflächen ausgeblendet. Eine Schaltfläche, die
@@ -861,7 +915,9 @@ public sealed partial class GapRow : ObservableObject, IDisposable
         OnPropertyChanged(nameof(CanRevise));
         OnPropertyChanged(nameof(CanUndoRevision));
         OnPropertyChanged(nameof(CanSearchCompanies));
+        OnPropertyChanged(nameof(CanSplit));
 
+        SplitCommand.NotifyCanExecuteChanged();
         SearchCompaniesCommand.NotifyCanExecuteChanged();
         BookCommand.NotifyCanExecuteChanged();
         ProofreadCommand.NotifyCanExecuteChanged();
