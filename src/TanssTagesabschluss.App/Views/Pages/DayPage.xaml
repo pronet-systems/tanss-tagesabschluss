@@ -192,6 +192,7 @@
                                                      Stelle geteilt hat, soll das zuruecknehmen
                                                      koennen, ohne den Tag neu zu laden. -->
                                                 <ui:Button Icon="{ui:SymbolIcon ArrowJoin20}"
+                                                           Content="Zusammenf&#252;gen"
                                                            Appearance="Secondary"
                                                            Command="{Binding MergeCommand}"
                                                            Visibility="{Binding CanMerge, Converter={StaticResource BoolToVis}}"
