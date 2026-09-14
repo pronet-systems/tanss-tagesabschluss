@@ -249,6 +249,13 @@ public sealed partial class DayViewModel : ObservableObject
             (companyId, ct) => composition.Tickets.ListForCompanyAsync(companyId, ct),
             (companyId, ct) => DevicesAsync(composition, companyId, ct));
 
+        // Jede Zeile haelt eine Abbruchmarke fuer die laufende Firmensuche. Beim Blaettern
+        // durch eine Woche summiert sich das, wenn niemand sie freigibt.
+        foreach (GapRow stale in Gaps)
+        {
+            stale.Dispose();
+        }
+
         Gaps.Clear();
         foreach (Gap gap in analysis.Gaps)
         {

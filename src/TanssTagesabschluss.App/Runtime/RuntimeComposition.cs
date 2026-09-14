@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net.Http;
 using System.Runtime.Versioning;
 using TanssTagesabschluss.Api.Contract;
@@ -147,7 +148,48 @@ public sealed class RuntimeComposition : IDisposable
     {
         MinimumGap = TimeSpan.FromMinutes(Config.Gaps.MinimumMinutes),
         ConditionalHolidayCountsAsDayOff = Config.Gaps.ConditionalHolidayIsDayOff,
+        WorkWeek = ReadWorkWeek(Config.Gaps.WorkDays, Config.Gaps.WorkBegin,
+                                Config.Gaps.WorkEnd),
     };
+
+    /// <summary>
+    /// Liest die Arbeitswoche aus der Konfiguration.
+    /// </summary>
+    /// <remarks>
+    /// <b>Ein unbekannter Name wird übergangen und bringt die Einrichtung nicht zu Fall.</b>
+    /// Die Prüfung beim Laden weist ihn bereits ab; dies ist der zweite Riegel, und an dieser
+    /// Stelle wäre eine Ausnahme das falsche Mittel — sie kostete die ganze Tagesansicht für
+    /// einen Tippfehler in einer Verfeinerung. Bleibt nichts Erkennbares übrig, gilt wieder die
+    /// Annahme, und der Tag sagt das auch.
+    /// </remarks>
+    private static WorkWeek ReadWorkWeek(IReadOnlyList<string> names, string begin, string end)
+    {
+        List<DayOfWeek> days = [];
+
+        foreach (string name in names)
+        {
+            if (Enum.TryParse(name, ignoreCase: true, out DayOfWeek day))
+            {
+                days.Add(day);
+            }
+        }
+
+        if (days.Count == 0)
+        {
+            return WorkWeek.Assumed;
+        }
+
+        // Beides oder nichts -- ein halber Rahmen ergaebe eine Luecke bis Mitternacht. Die
+        // Pruefung beim Laden faengt das ab; dies ist der zweite Riegel.
+        if (!TimeOnly.TryParse(begin, CultureInfo.InvariantCulture, out TimeOnly from)
+            || !TimeOnly.TryParse(end, CultureInfo.InvariantCulture, out TimeOnly until)
+            || until <= from)
+        {
+            return WorkWeek.Stated(days);
+        }
+
+        return WorkWeek.Stated(days, from, until);
+    }
 
     /// <summary>
     /// Baut einen zweiten Zugang mit einem <b>anderen</b> Token.

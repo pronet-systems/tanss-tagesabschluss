@@ -32,7 +32,40 @@ public sealed class CompanyRow
         Name = string.IsNullOrWhiteSpace(company.Name) ? "(ohne Namen)" : company.Name;
         Distinguisher = company.Distinguisher;
         Selectable = company.Selectable;
+        CustomerNumber = company.DisplayId;
+        Place = string.Join(" ",
+            new[] { company.PostCode, company.City }
+                .Where(part => !string.IsNullOrWhiteSpace(part)));
+        Role = RoleOf(company.CentralType);
     }
+
+    /// <summary>Die Kundennummer, wie sie in TANSS steht — <b>nicht</b> die interne Kennung.</summary>
+    /// <remarks>
+    /// Sie ist es, die auf Rechnungen und in Gesprächen genannt wird. Die interne
+    /// <see cref="Id"/> kennt ausserhalb der Schnittstelle niemand.
+    /// </remarks>
+    public string? CustomerNumber { get; }
+
+    /// <summary>
+    /// <c>Zentrale</c>, <c>Filiale</c> oder leer.
+    /// </summary>
+    /// <remarks>
+    /// <b>Der Unterschied entscheidet, wem die Leistung berechnet wird.</b> Gemessen am
+    /// 14.09.2026 tragen von 540 Firmen 9 den Wert <c>CENTRAL</c> und 15 den Wert
+    /// <c>BRANCH</c>; bei den übrigen steht <c>NONE</c>, und dort ist die Angabe schlicht keine
+    /// Auskunft — deshalb bleibt sie dann leer, statt „keine“ zu behaupten.
+    /// </remarks>
+    public string? Role { get; }
+
+    /// <summary>Postleitzahl und Ort, soweit vorhanden.</summary>
+    public string Place { get; }
+
+    private static string? RoleOf(string? centralType) => centralType switch
+    {
+        "CENTRAL" => "Zentrale",
+        "BRANCH" => "Filiale",
+        _ => null,
+    };
 
     /// <summary>Die <c>companyId</c>.</summary>
     public int Id { get; }
@@ -46,9 +79,37 @@ public sealed class CompanyRow
     /// <summary>Darf auf diese Firma gebucht werden?</summary>
     public bool Selectable { get; }
 
-    /// <summary>Name und Unterscheidungsmerkmal in einer Zeile.</summary>
-    /// <returns>Etwa <c>Musterfirma GmbH (4711 · 59757 Arnsberg)</c>.</returns>
-    public override string ToString() => $"{Name} ({Distinguisher})";
+    /// <summary>
+    /// Die Zeile, wie sie in der Auswahl steht.
+    /// </summary>
+    /// <remarks>
+    /// <b>Der Name allein genügt nicht.</b> Gemessen stand derselbe Firmenname mehrfach mit
+    /// verschiedenen Kennungen in der Trefferliste — und zwei davon waren Zentrale und Filiale
+    /// desselben Hauses. Deshalb stehen Kundennummer und Rolle daneben: Sie sind es, die den
+    /// Unterschied ausmachen, und sie sind es auch, die auf der Rechnung landen.
+    /// </remarks>
+    /// <returns>Etwa <c>Musterfirma GmbH · 10235 · Zentrale · 59757 Arnsberg</c>.</returns>
+    public override string ToString()
+    {
+        List<string> parts = [Name];
+
+        if (!string.IsNullOrWhiteSpace(CustomerNumber))
+        {
+            parts.Add(CustomerNumber);
+        }
+
+        if (!string.IsNullOrWhiteSpace(Role))
+        {
+            parts.Add(Role);
+        }
+
+        if (!string.IsNullOrWhiteSpace(Place))
+        {
+            parts.Add(Place);
+        }
+
+        return string.Join(" · ", parts);
+    }
 }
 
 /// <summary>Ein Ticket in der Auswahl beim Nachtragen.</summary>
@@ -175,7 +236,7 @@ public sealed class SupportRow
 /// erledigt ist — und die Bestätigung, dass es geklappt hat, wäre mit der Zeile verschwunden.</para>
 /// </remarks>
 [SupportedOSPlatform("windows")]
-public sealed partial class GapRow : ObservableObject
+public sealed partial class GapRow : ObservableObject, IDisposable
 {
     private readonly Gap _gap;
     private readonly Func<GapRow, CancellationToken, Task<BookingResult>> _book;
@@ -311,7 +372,7 @@ public sealed partial class GapRow : ObservableObject
 
     /// <summary>Lässt sich gerade nach einer Firma suchen?</summary>
     public bool CanSearchCompanies =>
-        !IsSearching && !IsBusy && !IsDone && !string.IsNullOrWhiteSpace(CompanyQuery);
+        !IsSearching && !IsBusy && !IsDone && CompanyQuery.Trim().Length >= MinimumQuery;
 
     /// <summary>
     /// Sucht Firmen zum eingegebenen Begriff.
@@ -388,7 +449,88 @@ public sealed partial class GapRow : ObservableObject
         CompanyStatus = null;
     }
 
-    partial void OnCompanyQueryChanged(string value) => RaiseCanExecute();
+    /// <inheritdoc />
+    /// <remarks>
+    /// Die Zeile lebt so lange wie der angezeigte Tag. Ohne dieses Aufräumen bliebe je Lücke
+    /// eine Abbruchmarke liegen, und beim Durchblättern einer Woche summiert sich das.
+    /// </remarks>
+    public void Dispose()
+    {
+        _typing?.Cancel();
+        _typing?.Dispose();
+        _typing = null;
+    }
+
+    /// <summary>Die kürzeste Eingabe, mit der überhaupt gesucht wird.</summary>
+    /// <remarks>
+    /// Unter drei Zeichen trifft eine Teilzeichenkettensuche fast jede Firma des Hauses — und
+    /// läuft damit ohnehin in die Ergebnisgrenze, hinter der TANSS eine <b>leere</b> Liste
+    /// liefert statt einer gekürzten.
+    /// </remarks>
+    private const int MinimumQuery = 3;
+
+    /// <summary>Wie lange nach dem letzten Tastendruck gewartet wird.</summary>
+    /// <remarks>
+    /// <b>Ohne diese Pause erzeugt ein getipptes Wort ein Dutzend Abfragen an die
+    /// Produktivinstanz</b> — und die Antwort auf „Mus“ ist ohnehin nicht die gesuchte. Eine
+    /// dreifünftel Sekunde ist lang genug, dass Tippen nicht sucht, und kurz genug, dass
+    /// niemand auf das Ergebnis wartet.
+    /// </remarks>
+    private static readonly TimeSpan SearchDelay = TimeSpan.FromMilliseconds(600);
+
+    private CancellationTokenSource? _typing;
+
+    partial void OnCompanyQueryChanged(string value)
+    {
+        RaiseCanExecute();
+        _ = SearchAfterTypingAsync(value);
+    }
+
+    /// <summary>
+    /// Sucht selbsttätig, sobald das Tippen zur Ruhe kommt.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Jeder neue Tastendruck bricht den vorigen Lauf ab.</b> Sonst stünde am Ende das
+    /// Ergebnis zu „Mus“ über dem zu „Musterfirma“ — die kürzere Anfrage ist schneller fertig
+    /// und käme zuletzt an.</para>
+    /// <para><b>Die Auswahl selbst löst keine Suche aus.</b> Wer einen Eintrag wählt, schreibt
+    /// dessen Text ins Feld zurück; ohne diese Prüfung suchte das Werkzeug daraufhin nach
+    /// genau der Zeile, die schon gewählt ist.</para>
+    /// </remarks>
+    private async Task SearchAfterTypingAsync(string query)
+    {
+        _typing?.Cancel();
+        _typing?.Dispose();
+
+        if (SelectedCompany is { } chosen
+            && string.Equals(query, chosen.ToString(), StringComparison.Ordinal))
+        {
+            _typing = null;
+            return;
+        }
+
+        if (query.Trim().Length < MinimumQuery)
+        {
+            _typing = null;
+            Companies.Clear();
+            CompanyStatus = null;
+            return;
+        }
+
+        CancellationTokenSource cts = new();
+        _typing = cts;
+
+        try
+        {
+            await Task.Delay(SearchDelay, cts.Token).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        await SearchCompaniesAsync().ConfigureAwait(true);
+    }
 
     partial void OnIsSearchingChanged(bool value) => RaiseCanExecute();
 

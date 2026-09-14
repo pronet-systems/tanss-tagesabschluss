@@ -10,11 +10,25 @@ folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Neu
 
+- **Lücken entstehen jetzt auch vor dem Einstempeln.** Wer um 11:08 stempelt, obwohl der
+  Arbeitstag um 8:00 beginnt, hatte für die drei Stunden davor keinen Zeitstempel — und damit
+  auch keine Lücke. Genau diese Stunden fielen durch jedes Raster. Unter Einstellungen lässt
+  sich jetzt die **Arbeitswoche** festlegen (Wochentage und die übliche Arbeitszeit); der
+  erwartete Rahmen wird dann mitdurchsucht. Am laufenden Tag reicht er nur bis jetzt, an freien
+  Tagen gilt er nicht.
+- **Die Arbeitswoche ersetzt die Annahme „Montag bis Freitag“.** Solange sie nicht gesetzt ist,
+  bleibt es bei der Annahme — mit dem Hinweis am Tag, dass die Einstufung nicht belegt ist.
+  Gesetzt verschwindet der Hinweis.
+
 - **Firmensuche in der Leistungserfassung.** Zu jeder Lücke lässt sich eine Firma suchen und
   auswählen. Ist eine gewählt, stehen daneben **nur noch deren** offene Tickets und **nur noch
   deren** Geräte — wer für einen Kollegen einspringt, findet dessen Ticket sonst nicht, weil es
   ihm nicht gehört. Ohne Firma bleibt es bei den eigenen offenen Tickets; der Normalfall kostet
   keinen Klick. Gebucht werden kann auch auf die Firma allein, ohne Ticket.
+  Das Feld sucht **selbsttätig ab drei Zeichen** — kein Suchknopf — und zeigt zu jeder Firma
+  Kundennummer und, wo TANSS es führt, **Zentrale** oder **Filiale**. Das ist nicht
+  Beiwerk: Gemessen heissen drei Firmen gleich, eine davon ist die Zentrale und eine die
+  Filiale.
 - **Der Rückblick ist auch im Überblick einstellbar** — dort, wo die Frage aufkommt. Sieben
   Tage bis ein Jahr, sofort gespeichert.
 

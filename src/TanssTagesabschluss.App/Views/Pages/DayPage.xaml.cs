@@ -1,8 +1,6 @@
 using System.Runtime.Versioning;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
-using TanssTagesabschluss.App.ViewModels;
 
 namespace TanssTagesabschluss.App.Views.Pages;
 
@@ -39,31 +37,6 @@ public partial class DayPage : Page
             {
                 _ = window.Day.ReloadAsync();
             }
-        }
-    }
-
-    /// <summary>
-    /// Die Eingabetaste im Suchfeld sucht die Firma.
-    /// </summary>
-    /// <remarks>
-    /// <para>Wer einen Suchbegriff tippt, drückt danach die Eingabetaste — das ist eingeübt, und
-    /// ohne diese Zeile geschieht dann nichts.</para>
-    /// <para><b>Warum nicht bei jedem Tastendruck gesucht wird:</b> Die Suche geht über
-    /// <c>PUT /api/v1/search</c> an die Produktivinstanz. Für ein Wort ergäbe das ein Dutzend
-    /// Abfragen, und die Antwort auf „Mus“ ist ohnehin nicht die, die jemand sucht.</para>
-    /// </remarks>
-    private void OnCompanySearchKeyDown(object sender, KeyEventArgs e)
-    {
-        if (e.Key != Key.Enter || sender is not FrameworkElement { DataContext: GapRow row })
-        {
-            return;
-        }
-
-        e.Handled = true;
-
-        if (row.SearchCompaniesCommand.CanExecute(null))
-        {
-            row.SearchCompaniesCommand.Execute(null);
         }
     }
 }

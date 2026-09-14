@@ -150,6 +150,48 @@ public static class ConfigValidator
         // Leistung faellt oft erst bei der Quartalsabrechnung auf, und dann will jemand ein
         // ganzes Quartal oder ein Jahr durchsehen. Ein Jahr ist die neue Grenze - darueber
         // hinaus geht es nicht mehr um Nachtragen, sondern um Statistik.
+        foreach (string day in gaps.WorkDays)
+        {
+            if (!Enum.TryParse(day, ignoreCase: true, out DayOfWeek _))
+            {
+                problems.Add(
+                    $"gaps.work_days enthält „{day}“ — das ist kein Wochentag. Erlaubt sind "
+                    + "MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY und SUNDAY. "
+                    + "Ein Tippfehler hiesse hier, dass an diesem Tag stillschweigend nicht "
+                    + "gearbeitet wird und keine Lücke gemeldet wird.");
+            }
+        }
+
+        // Leer heisst "nicht angegeben" und ist der Regelfall -- nur ein gesetzter Wert muss
+        // eine Uhrzeit sein.
+        if (!string.IsNullOrWhiteSpace(gaps.WorkBegin))
+        {
+            CheckTime(gaps.WorkBegin, "gaps.work_begin", problems);
+        }
+
+        if (!string.IsNullOrWhiteSpace(gaps.WorkEnd))
+        {
+            CheckTime(gaps.WorkEnd, "gaps.work_end", problems);
+        }
+
+        // Beides oder nichts: Ein Beginn ohne Ende ergaebe ein offenes Zeitfenster bis
+        // Mitternacht, ein Ende ohne Beginn eines ab Mitternacht.
+        if (string.IsNullOrWhiteSpace(gaps.WorkBegin) != string.IsNullOrWhiteSpace(gaps.WorkEnd))
+        {
+            problems.Add("gaps.work_begin und gaps.work_end gehören zusammen — es ist nur eines "
+                + "von beiden gesetzt. Ein halber Arbeitsrahmen ergäbe ein offenes Zeitfenster "
+                + "bis Mitternacht.");
+        }
+
+        if (TimeOnly.TryParse(gaps.WorkBegin, CultureInfo.InvariantCulture, out TimeOnly begin)
+            && TimeOnly.TryParse(gaps.WorkEnd, CultureInfo.InvariantCulture, out TimeOnly end)
+            && end <= begin)
+        {
+            problems.Add($"gaps.work_end ({gaps.WorkEnd}) liegt nicht nach gaps.work_begin "
+                + $"({gaps.WorkBegin}). Nachtschichten über Mitternacht kennt dieses Werkzeug "
+                + "nicht.");
+        }
+
         if (gaps.HistoryDays is < 1 or > 365)
         {
             problems.Add(

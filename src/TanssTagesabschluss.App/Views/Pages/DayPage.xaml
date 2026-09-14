@@ -165,54 +165,43 @@
                                                     VerticalScrollBarVisibility="Auto"
                                                     IsEnabled="{Binding CanBook}" />
 
-                                        <!-- Zeile 3: Die Firma. Sie steht VOR Ticket und
-                                             Gerät, weil sie beide einschränkt: Ist eine Firma
-                                             gewählt, stehen daneben nur noch deren offene
-                                             Tickets und deren Geräte. Ohne Firma bleibt es bei
-                                             den eigenen Tickets des Technikers - dem
-                                             Normalfall, der keinen Klick kosten soll. -->
+                                        <!-- Zeile 3: Ziel und Schaltflaechen, alles
+                                             nebeneinander. Die Firma steht zuerst, weil sie
+                                             die beiden Felder daneben einschraenkt: Ist eine
+                                             gewaehlt, stehen dort nur noch ihre offenen
+                                             Tickets und ihre Geraete. -->
                                         <WrapPanel>
-                                            <ui:TextBox Text="{Binding CompanyQuery, UpdateSourceTrigger=PropertyChanged}"
-                                                        PlaceholderText="Firma suchen …"
-                                                        MinWidth="200" Margin="0,0,8,0"
-                                                        IsEnabled="{Binding CanBook}"
-                                                        KeyDown="OnCompanySearchKeyDown"
-                                                        ToolTip="Mindestens drei Zeichen. Die Eingabetaste sucht." />
-
-                                            <ui:Button Icon="{ui:SymbolIcon Search24}"
-                                                       Content="Suchen"
-                                                       Command="{Binding SearchCompaniesCommand}"
-                                                       Margin="0,0,8,0" />
-
-                                            <ComboBox ItemsSource="{Binding Companies}"
+                                            <!-- Beschreibbar und ohne Suchknopf: Getippt wird
+                                                 ohnehin, und ab drei Zeichen sucht das Feld
+                                                 von selbst. Ein zweites Auswahlfeld daneben
+                                                 waere derselbe Inhalt an zwei Stellen. -->
+                                            <ComboBox IsEditable="True"
+                                                      IsTextSearchEnabled="False"
+                                                      StaysOpenOnEdit="True"
+                                                      Text="{Binding CompanyQuery, UpdateSourceTrigger=PropertyChanged}"
+                                                      ItemsSource="{Binding Companies}"
                                                       SelectedItem="{Binding SelectedCompany, Mode=TwoWay}"
                                                       IsEnabled="{Binding CanBook}"
-                                                      MinWidth="260" Margin="0,0,8,0"
-                                                      ToolTip="Die Firma, auf die gebucht wird. Sie bestimmt, welche Tickets und Geräte daneben zur Wahl stehen.">
+                                                      MinWidth="300" Margin="0,0,8,0"
+                                                      ToolTip="Firma suchen &#8212; ab drei Zeichen sucht das Feld von selbst. Die Auswahl bestimmt, welche Tickets und Ger&#228;te daneben zur Wahl stehen.">
                                                 <ComboBox.ItemContainerStyle>
                                                     <Style TargetType="ComboBoxItem">
                                                         <!-- Gesperrte Firmen bleiben sichtbar,
-                                                             aber unwählbar: Sie wegzulassen
-                                                             hiesse, dass jemand sucht und nicht
-                                                             findet, ohne zu erfahren, warum. -->
+                                                             aber unwaehlbar: Sie wegzulassen
+                                                             hiesse, dass jemand sucht und
+                                                             nicht findet, ohne zu erfahren,
+                                                             warum. -->
                                                         <Setter Property="IsEnabled" Value="{Binding Selectable}" />
                                                     </Style>
                                                 </ComboBox.ItemContainerStyle>
                                             </ComboBox>
 
                                             <ui:Button Icon="{ui:SymbolIcon Dismiss24}"
-                                                       ToolTip="Firmenauswahl zurücknehmen — daneben stehen dann wieder die eigenen Tickets."
+                                                       ToolTip="Firmenauswahl zur&#252;cknehmen &#8212; daneben stehen dann wieder die eigenen Tickets."
                                                        Command="{Binding ClearCompanyCommand}"
+                                                       Margin="0,0,8,0"
                                                        Visibility="{Binding HasCompany, Converter={StaticResource BoolToVis}}" />
-                                        </WrapPanel>
 
-                                        <ui:TextBlock Text="{Binding CompanyStatus}" TextWrapping="Wrap"
-                                                      FontSize="12"
-                                                      Visibility="{Binding CompanyStatus, Converter={StaticResource NullToCollapsed}}"
-                                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-
-                                        <!-- Zeile 4: Ziel und Schaltflächen -->
-                                        <WrapPanel>
                                             <ComboBox ItemsSource="{Binding Tickets}"
                                                       SelectedItem="{Binding SelectedTicket, Mode=TwoWay}"
                                                       IsEnabled="{Binding CanBook}"
@@ -223,32 +212,32 @@
                                                       SelectedItem="{Binding SelectedDevice, Mode=TwoWay}"
                                                       IsEnabled="{Binding CanBook}"
                                                       MinWidth="200" Margin="0,0,8,0"
-                                                      ToolTip="Das Gerät, an dem gearbeitet wurde. Nur mit Zuordnung taucht die Leistung in der Gerätehistorie auf." />
+                                                      ToolTip="Das Ger&#228;t, an dem gearbeitet wurde. Nur mit Zuordnung taucht die Leistung in der Ger&#228;tehistorie auf." />
 
                                             <CheckBox Content="intern" IsChecked="{Binding IsInternal, Mode=TwoWay}"
                                                       IsEnabled="{Binding CanBook}"
                                                       VerticalAlignment="Center" Margin="0,0,12,0"
-                                                      ToolTip="Arbeit am eigenen Haus. Der Kunde sieht diese Leistung nicht — erfasst wird sie trotzdem." />
+                                                      ToolTip="Arbeit am eigenen Haus. Der Kunde sieht diese Leistung nicht &#8212; erfasst wird sie trotzdem." />
 
-                                            <!-- Die KI-Schaltflächen verschwinden, wenn die
-                                                 Unterstützung nicht eingerichtet ist. Eine
-                                                 Schaltfläche, die bei jedem Druck dasselbe
-                                                 „ist nicht eingerichtet“ sagt, ist schlechter
+                                            <!-- Die KI-Schaltflaechen verschwinden, wenn die
+                                                 Unterstuetzung nicht eingerichtet ist. Eine
+                                                 Schaltflaeche, die bei jedem Druck dasselbe
+                                                 "ist nicht eingerichtet" sagt, ist schlechter
                                                  als keine. -->
                                             <ui:Button Icon="{ui:SymbolIcon TextGrammarCheckmark24}"
-                                                       ToolTip="Rechtschreibung, Grammatik und Zeichensetzung korrigieren — sonst nichts."
+                                                       ToolTip="Rechtschreibung, Grammatik und Zeichensetzung korrigieren &#8212; sonst nichts."
                                                        Command="{Binding ProofreadCommand}"
                                                        Margin="0,0,8,0"
                                                        Visibility="{Binding CanUseAi, Converter={StaticResource BoolToVis}}" />
 
                                             <ui:Button Icon="{ui:SymbolIcon Sparkle24}"
-                                                       ToolTip="Stichworte zu Sätzen ausformulieren. Es wird nichts erfunden."
+                                                       ToolTip="Stichworte zu S&#228;tzen ausformulieren. Es wird nichts erfunden."
                                                        Command="{Binding ImproveCommand}"
                                                        Margin="0,0,8,0"
                                                        Visibility="{Binding CanUseAi, Converter={StaticResource BoolToVis}}" />
 
                                             <ui:Button Icon="{ui:SymbolIcon ArrowUndo24}"
-                                                       ToolTip="Die Fassung vor der Überarbeitung wiederherstellen."
+                                                       ToolTip="Die Fassung vor der &#220;berarbeitung wiederherstellen."
                                                        Command="{Binding UndoRevisionCommand}"
                                                        Margin="0,0,12,0"
                                                        Visibility="{Binding CanUndoRevision, Converter={StaticResource BoolToVis}}" />
@@ -259,6 +248,11 @@
                                                        Command="{Binding BookCommand}"
                                                        IsEnabled="{Binding CanBook}" />
                                         </WrapPanel>
+
+                                        <ui:TextBlock Text="{Binding CompanyStatus}" TextWrapping="Wrap"
+                                                      FontSize="12"
+                                                      Visibility="{Binding CompanyStatus, Converter={StaticResource NullToCollapsed}}"
+                                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
 
                                         <ui:TextBlock Text="{Binding Status}" TextWrapping="Wrap"
                                                       FontSize="12"

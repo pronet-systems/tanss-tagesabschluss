@@ -122,6 +122,59 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private int _historyDays = 14;
 
+    /// <summary>
+    /// Ist die Arbeitswoche von Hand festgelegt?
+    /// </summary>
+    /// <remarks>
+    /// <b>Ein eigener Schalter und nicht bloss sieben Häkchen.</b> Ohne ihn liesse sich „nicht
+    /// gesetzt“ nicht von „Montag bis Freitag gesetzt“ unterscheiden — beides ergäbe dieselben
+    /// fünf Häkchen. Der Unterschied zählt aber: Im einen Fall steht am Tag ein Hinweis, dass
+    /// die Einstufung geraten ist, im anderen nicht.
+    /// </remarks>
+    [ObservableProperty]
+    private bool _workWeekIsSet;
+
+    [ObservableProperty]
+    private bool _worksMonday = true;
+
+    [ObservableProperty]
+    private bool _worksTuesday = true;
+
+    [ObservableProperty]
+    private bool _worksWednesday = true;
+
+    [ObservableProperty]
+    private bool _worksThursday = true;
+
+    [ObservableProperty]
+    private bool _worksFriday = true;
+
+    [ObservableProperty]
+    private bool _worksSaturday;
+
+    [ObservableProperty]
+    private bool _worksSunday;
+
+    /// <summary>Der übliche Arbeitsbeginn, <c>HH:mm</c>.</summary>
+    [ObservableProperty]
+    private string _workBegin = "08:00";
+
+    /// <summary>Das übliche Arbeitsende, <c>HH:mm</c>.</summary>
+    [ObservableProperty]
+    private string _workEnd = "17:00";
+
+    /// <summary>
+    /// Sollen die Arbeitszeiten ausgewertet werden?
+    /// </summary>
+    /// <remarks>
+    /// <b>Getrennt von den Arbeitstagen, weil es zwei verschiedene Aussagen sind.</b> „Ich
+    /// arbeite Mo–Fr“ lässt sich sicher sagen; „ich bin immer um 8:00 da“ nicht jeder. Wer nur
+    /// das Erste setzt, bekommt die Einstufung der Tage ohne Hinweis — aber keine Mahnung, weil
+    /// er um 9:12 eingestempelt hat.
+    /// </remarks>
+    [ObservableProperty]
+    private bool _workHoursAreSet;
+
     [ObservableProperty]
     private bool _verifyTls = true;
 
@@ -144,6 +197,133 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     /// <summary>Meldet, dass die Einstellungen zur Sprachmodell-Unterstützung gewünscht sind.</summary>
     public event EventHandler? AiSettingsRequested;
+
+    /// <summary>
+    /// Was die Arbeitswoche für die Tagesansicht bedeutet — ein Satz, der beides sagt.
+    /// </summary>
+    /// <summary>Lassen sich die Arbeitszeiten gerade bearbeiten?</summary>
+    /// <remarks>
+    /// Eine berechnete Eigenschaft statt eines Umsetzers für mehrere Bindungen: Die Frage ist
+    /// eine des Ansichtsmodells und keine der Darstellung.
+    /// </remarks>
+    public bool CanEditWorkHours => WorkWeekIsSet && WorkHoursAreSet;
+
+    public string WorkWeekText
+    {
+        get
+        {
+            if (!WorkWeekIsSet)
+            {
+                return "Nicht gesetzt. Solange TANSS keinen Wochenplan liefert, gilt Montag bis "
+                    + "Freitag als angenommen — und jeder Tag trägt einen Hinweis, dass die "
+                    + "Einstufung nicht belegt ist.";
+            }
+
+            string days = "Gesetzt: " + Describe() + ". An anderen Tagen erscheint kein Hinweis "
+                + "auf fehlende Leistungen.";
+
+            return WorkHoursAreSet
+                ? days + $" Erwartet wird {WorkBegin} bis {WorkEnd}: Wer später einstempelt, "
+                  + "bekommt die Zeit davor als offenes Zeitfenster — sonst fiele sie durch "
+                  + "jedes Raster, denn ohne Stempel gibt es auch keine Lücke."
+                : days + " Ohne Arbeitszeiten werden nur Lücken innerhalb der gestempelten "
+                  + "Anwesenheit gefunden. Wer um 11:08 einstempelt, obwohl er um 8:00 da war, "
+                  + "bleibt damit unbemerkt.";
+        }
+    }
+
+    /// <summary>Die gewählten Arbeitstage in der Form, die die Konfiguration führt.</summary>
+    /// <remarks>
+    /// Englische Namen, wie sie auch TANSS verwendet. Eine leere Liste heißt „nicht gesetzt“ —
+    /// deshalb ergibt der abgeschaltete Schalter hier nichts und nicht etwa sieben Einträge.
+    /// </remarks>
+    private List<string> SelectedWorkDays()
+    {
+        if (!WorkWeekIsSet)
+        {
+            return [];
+        }
+
+        List<string> days = [];
+
+        if (WorksMonday) { days.Add(nameof(DayOfWeek.Monday)); }
+        if (WorksTuesday) { days.Add(nameof(DayOfWeek.Tuesday)); }
+        if (WorksWednesday) { days.Add(nameof(DayOfWeek.Wednesday)); }
+        if (WorksThursday) { days.Add(nameof(DayOfWeek.Thursday)); }
+        if (WorksFriday) { days.Add(nameof(DayOfWeek.Friday)); }
+        if (WorksSaturday) { days.Add(nameof(DayOfWeek.Saturday)); }
+        if (WorksSunday) { days.Add(nameof(DayOfWeek.Sunday)); }
+
+        return days;
+    }
+
+    /// <summary>Übernimmt die Arbeitstage aus der Konfiguration in die Häkchen.</summary>
+    private void ApplyWorkDays(IReadOnlyList<string> days)
+    {
+        WorkWeekIsSet = days.Count > 0;
+
+        if (!WorkWeekIsSet)
+        {
+            return;
+        }
+
+        bool Has(DayOfWeek day) =>
+            days.Any(name => string.Equals(name, day.ToString(), StringComparison.OrdinalIgnoreCase));
+
+        WorksMonday = Has(DayOfWeek.Monday);
+        WorksTuesday = Has(DayOfWeek.Tuesday);
+        WorksWednesday = Has(DayOfWeek.Wednesday);
+        WorksThursday = Has(DayOfWeek.Thursday);
+        WorksFriday = Has(DayOfWeek.Friday);
+        WorksSaturday = Has(DayOfWeek.Saturday);
+        WorksSunday = Has(DayOfWeek.Sunday);
+    }
+
+    /// <summary>Die gewählten Tage als Kürzel, in der Reihenfolge der Woche.</summary>
+    private string Describe()
+    {
+        List<string> parts = [];
+
+        if (WorksMonday) { parts.Add("Mo"); }
+        if (WorksTuesday) { parts.Add("Di"); }
+        if (WorksWednesday) { parts.Add("Mi"); }
+        if (WorksThursday) { parts.Add("Do"); }
+        if (WorksFriday) { parts.Add("Fr"); }
+        if (WorksSaturday) { parts.Add("Sa"); }
+        if (WorksSunday) { parts.Add("So"); }
+
+        return parts.Count == 0 ? "kein Tag gewählt" : string.Join(", ", parts);
+    }
+
+    partial void OnWorkWeekIsSetChanged(bool value)
+    {
+        OnPropertyChanged(nameof(WorkWeekText));
+        OnPropertyChanged(nameof(CanEditWorkHours));
+    }
+
+    partial void OnWorkHoursAreSetChanged(bool value)
+    {
+        OnPropertyChanged(nameof(WorkWeekText));
+        OnPropertyChanged(nameof(CanEditWorkHours));
+    }
+
+    partial void OnWorkBeginChanged(string value) => OnPropertyChanged(nameof(WorkWeekText));
+
+    partial void OnWorkEndChanged(string value) => OnPropertyChanged(nameof(WorkWeekText));
+
+    partial void OnWorksMondayChanged(bool value) => OnPropertyChanged(nameof(WorkWeekText));
+
+    partial void OnWorksTuesdayChanged(bool value) => OnPropertyChanged(nameof(WorkWeekText));
+
+    partial void OnWorksWednesdayChanged(bool value) => OnPropertyChanged(nameof(WorkWeekText));
+
+    partial void OnWorksThursdayChanged(bool value) => OnPropertyChanged(nameof(WorkWeekText));
+
+    partial void OnWorksFridayChanged(bool value) => OnPropertyChanged(nameof(WorkWeekText));
+
+    partial void OnWorksSaturdayChanged(bool value) => OnPropertyChanged(nameof(WorkWeekText));
+
+    partial void OnWorksSundayChanged(bool value) => OnPropertyChanged(nameof(WorkWeekText));
 
     /// <summary>Die sechzehn Bundesländer für die Auswahl.</summary>
     public static IReadOnlyList<FederalState> FederalStates => FederalState.All;
@@ -537,6 +717,9 @@ public sealed partial class SettingsViewModel : ObservableObject
             {
                 MinimumMinutes = MinimumMinutes,
                 HistoryDays = HistoryDays,
+                WorkDays = SelectedWorkDays(),
+                WorkBegin = WorkWeekIsSet && WorkHoursAreSet ? WorkBegin.Trim() : string.Empty,
+                WorkEnd = WorkWeekIsSet && WorkHoursAreSet ? WorkEnd.Trim() : string.Empty,
             },
             Reminder = new ReminderSection
             {
@@ -820,6 +1003,16 @@ public sealed partial class SettingsViewModel : ObservableObject
 
         MinimumMinutes = config.Gaps.MinimumMinutes;
         HistoryDays = config.Gaps.HistoryDays;
+        ApplyWorkDays(config.Gaps.WorkDays);
+
+        WorkHoursAreSet = !string.IsNullOrWhiteSpace(config.Gaps.WorkBegin)
+            && !string.IsNullOrWhiteSpace(config.Gaps.WorkEnd);
+
+        if (WorkHoursAreSet)
+        {
+            WorkBegin = config.Gaps.WorkBegin;
+            WorkEnd = config.Gaps.WorkEnd;
+        }
 
         MorningEnabled = config.Reminder.MorningEnabled;
         MorningTime = config.Reminder.MorningTime;

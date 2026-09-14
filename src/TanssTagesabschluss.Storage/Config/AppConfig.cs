@@ -200,6 +200,39 @@ public sealed record GapSection
     /// </remarks>
     public bool ConditionalHolidayIsDayOff { get; init; } = true;
 
+    /// <summary>
+    /// Die Wochentage, an denen gearbeitet wird — leer heißt „nicht gesetzt“.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Warum diese Angabe hier steht und nicht aus TANSS kommt.</b> Nachgemessen am
+    /// 14.09.2026 gegen 10.10.0 nennt TANSS zu einem Arbeitszeitmodell Kennung und Namen, aber
+    /// keinen Wochenplan; vielen Mitarbeitern ist ohnehin keines zugeordnet. Ohne diese Angabe
+    /// muss das Werkzeug Montag bis Freitag annehmen — und sagt das dann auch an jedem Tag.</para>
+    /// <para>Erlaubt sind die englischen Namen der Wochentage
+    /// (<c>MONDAY</c> … <c>SUNDAY</c>), wie sie auch TANSS verwendet. Gross- und
+    /// Kleinschreibung ist gleichgültig.</para>
+    /// </remarks>
+    public IReadOnlyList<string> WorkDays { get; init; } = [];
+
+    /// <summary>
+    /// Der übliche Arbeitsbeginn, <c>HH:mm</c>; leer heißt „nicht angegeben“.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Hieran hängt der teuerste blinde Fleck dieses Werkzeugs.</b> Lücken entstehen
+    /// sonst nur <i>innerhalb</i> gestempelter Anwesenheit: Wer um 11:08 einstempelt, obwohl er
+    /// um 8:00 da war, hat für die drei Stunden davor gar keinen Stempel — und damit auch keine
+    /// Lücke. Mit einem Arbeitsbeginn wird dieser Zeitraum zum offenen Zeitfenster.</para>
+    /// <para>Gilt für alle unter <see cref="WorkDays"/> gewählten Tage.</para>
+    /// </remarks>
+    public string WorkBegin { get; init; } = string.Empty;
+
+    /// <summary>Das übliche Arbeitsende, <c>HH:mm</c>; leer heißt „nicht angegeben“.</summary>
+    /// <remarks>
+    /// <b>Ohne Ende kein Rahmen.</b> Ein Beginn allein ergäbe ein offenes Zeitfenster bis
+    /// Mitternacht. Deshalb wirken beide Werte nur zusammen.
+    /// </remarks>
+    public string WorkEnd { get; init; } = string.Empty;
+
     /// <summary>Wie viele Tage rückwärts die Übersicht zeigt.</summary>
     /// <remarks>
     /// Vierzehn Tage decken zwei Wochen ab — genug, um nach einem Urlaub aufzuräumen, und wenig
