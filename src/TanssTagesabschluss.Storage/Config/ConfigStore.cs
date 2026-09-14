@@ -119,7 +119,7 @@ public sealed class ConfigStore : IConfigStore
             throw new ConfigException(
                 string.Create(CultureInfo.CurrentCulture,
                     $"Die Konfiguration hat Stand {config.Version}, diese Programmfassung kennt höchstens {AppConfig.CurrentVersion}.")
-                + " Sie stammt vermutlich von einer neueren Fassung des Werkzeugs — dann ist "
+                + " Sie stammt vermutlich von einer neueren Version des Werkzeugs — dann ist "
                 + "das Programm zu aktualisieren, nicht die Datei zu ändern.");
         }
 

@@ -72,7 +72,7 @@ public sealed class AbsenceListTests
     [Fact]
     public void Die_beschriebene_Form_wird_auch_gelesen()
     {
-        // Auf welcher Fassung die Instanz des Kunden steht, entscheidet nicht dieses Werkzeug.
+        // Auf welcher Version die Instanz des Kunden steht, entscheidet nicht dieses Werkzeug.
         AbsenceList list = Parse(Documented);
 
         Assert.Equal(344, Assert.Single(list.Requests).Id);

@@ -222,7 +222,7 @@ public enum AbsenceCoverage
 /// irgendwo verschluckt worden, hätte das Werkzeug jeden Urlaubstag als Lücke gemeldet, und
 /// jemand hätte Leistungen für Tage gesucht, an denen er am Strand lag.</para>
 /// <para><b>Gelesen werden deshalb beide Formen</b> — die beschriebene und die gemessene. Auf
-/// welcher Fassung die Instanz des Kunden steht, entscheidet nicht dieses Werkzeug.</para>
+/// welcher Version die Instanz des Kunden steht, entscheidet nicht dieses Werkzeug.</para>
 /// </remarks>
 [JsonConverter(typeof(AbsenceListConverter))]
 public sealed record AbsenceList
@@ -243,7 +243,7 @@ public sealed record AbsenceList
 /// </remarks>
 public sealed class AbsenceListConverter : JsonConverter<AbsenceList>
 {
-    /// <summary>Der Name des Feldes, unter dem die gemessene Fassung die Anträge führt.</summary>
+    /// <summary>Der Name des Feldes, unter dem die gemessene Form die Anträge führt.</summary>
     private const string Field = "vacationRequests";
 
     /// <inheritdoc />
@@ -252,7 +252,7 @@ public sealed class AbsenceListConverter : JsonConverter<AbsenceList>
     {
         ArgumentNullException.ThrowIfNull(options);
 
-        // Die beschriebene Fassung: eine blanke Liste.
+        // Die beschriebene Form: eine blanke Liste.
         if (reader.TokenType == JsonTokenType.StartArray)
         {
             return new AbsenceList
@@ -274,7 +274,7 @@ public sealed class AbsenceListConverter : JsonConverter<AbsenceList>
                 + "hatte — und ein geratener Urlaub wäre schlimmer als gar keine Antwort.");
         }
 
-        // Die gemessene Fassung: ein Objekt, in dem die Antraege unter "vacationRequests"
+        // Die gemessene Form: ein Objekt, in dem die Antraege unter "vacationRequests"
         // stehen. Daneben liegt "employeeSummaries" mit Jahresurlaubskonten; die liest dieses
         // Werkzeug nicht, weil es sie nicht auswertet.
         using JsonDocument document = JsonDocument.ParseValue(ref reader);

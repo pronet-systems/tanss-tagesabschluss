@@ -155,7 +155,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         Settings.RefreshAi();
     }
 
-    /// <summary>Führt zur Seite „Über“, wo sich die neue Fassung holen lässt.</summary>
+    /// <summary>Führt zur Seite „Über“, wo sich die neue Version holen lässt.</summary>
     private void OnUpdateHintClick(object sender, RoutedEventArgs e) =>
         Navigation.Navigate(typeof(AboutPage));
 

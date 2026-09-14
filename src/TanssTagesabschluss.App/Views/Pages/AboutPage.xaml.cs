@@ -4,7 +4,7 @@ using System.Windows.Controls;
 
 namespace TanssTagesabschluss.App.Views.Pages;
 
-/// <summary>Fassung, Ablageorte, Aktualisierung.</summary>
+/// <summary>Version, Ablageorte, Aktualisierung.</summary>
 [SupportedOSPlatform("windows")]
 public partial class AboutPage : Page
 {

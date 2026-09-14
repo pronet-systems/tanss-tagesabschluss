@@ -43,7 +43,7 @@ public partial class App : Application
         // ausdruecklich: ueber "Beenden" am Symbol im Infobereich.
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
-        // GENAU EINMAL. Zwei laufende Fassungen hiessen zwei Symbole im Infobereich, zwei
+        // GENAU EINMAL. Zwei laufende Instanzen hiessen zwei Symbole im Infobereich, zwei
         // Tokendienste und zweimal dieselbe Erinnerung - bei einem Werkzeug, dessen ganzer
         // Zweck eine Meldung am Tag ist, waere das der schnellste Weg, es abzuschalten.
         //
@@ -54,7 +54,7 @@ public partial class App : Application
 
         if (!_instance.IsFirst)
         {
-            // Die laufende Fassung nach vorn bitten und still enden. Eine Meldung "laeuft
+            // Die laufende Instanz nach vorn bitten und still enden. Eine Meldung "laeuft
             // bereits" waere hier die schlechtere Antwort: Wer das Werkzeug startet, will es
             // sehen und nicht darueber belehrt werden, dass es schon da ist.
             SingleInstance.AskRunningInstanceToShow();

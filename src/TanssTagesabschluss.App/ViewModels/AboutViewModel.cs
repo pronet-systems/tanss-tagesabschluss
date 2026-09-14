@@ -11,7 +11,7 @@ using TanssTagesabschluss.Storage;
 namespace TanssTagesabschluss.App.ViewModels;
 
 /// <summary>
-/// „Über“: Fassung, Ablageorte, Aktualisierung.
+/// „Über“: Version, Ablageorte, Aktualisierung.
 /// </summary>
 /// <remarks>
 /// <b>Die Ablageorte stehen hier, weil sie im Fehlerfall gebraucht werden.</b> Wer einer
@@ -36,14 +36,14 @@ public sealed partial class AboutViewModel : ObservableObject
     private bool _isBusy;
 
     /// <summary>Baut das Ansichtsmodell.</summary>
-    /// <param name="updates">Der Dienst, der nach neuen Fassungen sieht.</param>
+    /// <param name="updates">Der Dienst, der nach neuen Versionen sieht.</param>
     public AboutViewModel(UpdateService updates)
     {
         ArgumentNullException.ThrowIfNull(updates);
         _updates = updates;
     }
 
-    /// <summary>Die laufende Fassung.</summary>
+    /// <summary>Die laufende Version.</summary>
     public static string VersionText => Assembly.GetExecutingAssembly()
         .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
         is { Length: > 0 } version
@@ -97,10 +97,10 @@ public sealed partial class AboutViewModel : ObservableObject
     public static string ReleasesUrl =>
         $"https://github.com/{UpdateService.Repository}/releases";
 
-    /// <summary>Steht eine neuere Fassung bereit?</summary>
+    /// <summary>Steht eine neuere Version bereit?</summary>
     public bool HasUpdate => Update is not null;
 
-    /// <summary>Sieht nach, ob es eine neuere Fassung gibt.</summary>
+    /// <summary>Sieht nach, ob es eine neuere Version gibt.</summary>
     /// <returns>Der abgeschlossene Vorgang.</returns>
     [RelayCommand]
     public async Task CheckAsync()
@@ -129,7 +129,7 @@ public sealed partial class AboutViewModel : ObservableObject
     /// Öffnet die Seite der Veröffentlichung im Browser.
     /// </summary>
     /// <remarks>
-    /// <b>Bewusst der Browser und kein Herunterladen im Fenster.</b> Wer eine neue Fassung
+    /// <b>Bewusst der Browser und kein Herunterladen im Fenster.</b> Wer eine neue Version
     /// einspielt, soll vorher lesen, was sich geändert hat — und das steht auf dieser Seite.
     /// Das Herunterladen und Einspielen selbst übernimmt der Dienst auf Wunsch trotzdem.
     /// </remarks>
@@ -167,11 +167,11 @@ public sealed partial class AboutViewModel : ObservableObject
     {
         UpdateCheckState.Checking => "Sieht nach …",
         UpdateCheckState.UpToDate => string.Create(CultureInfo.CurrentCulture,
-            $"Fassung {VersionText} ist die neueste."),
+            $"Version {VersionText} ist die neueste."),
         UpdateCheckState.UpdateAvailable => Update is { } update
             ? string.Create(CultureInfo.CurrentCulture,
-                $"Fassung {update.Version} steht bereit ({update.SizeText}).")
-            : "Eine neuere Fassung steht bereit.",
+                $"Version {update.Version} steht bereit ({update.SizeText}).")
+            : "Eine neuere Version steht bereit.",
         UpdateCheckState.Failed => Message ?? "Die Prüfung ist fehlgeschlagen.",
         _ => "Noch nicht nachgesehen.",
     };

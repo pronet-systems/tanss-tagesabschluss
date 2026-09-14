@@ -268,7 +268,7 @@
                                                        Visibility="{Binding CanUseAi, Converter={StaticResource BoolToVis}}" />
 
                                             <ui:Button Icon="{ui:SymbolIcon ArrowUndo24}"
-                                                       ToolTip="Die Fassung vor der &#220;berarbeitung wiederherstellen."
+                                                       ToolTip="Den Text vor der &#220;berarbeitung wiederherstellen."
                                                        Command="{Binding UndoRevisionCommand}"
                                                        Margin="0,0,12,0"
                                                        Visibility="{Binding CanUndoRevision, Converter={StaticResource BoolToVis}}" />

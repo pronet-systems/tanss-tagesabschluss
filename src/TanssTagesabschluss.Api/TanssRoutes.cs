@@ -15,7 +15,7 @@ namespace TanssTagesabschluss.Api;
 ///
 /// <para><b>Zwei Routen sind es nicht.</b> <c>GET /api/v1/jwts/tanss_app</c> steht in keiner
 /// Beschreibung und ist aus dem Schwesterprojekt übernommen, wo sie gegen eine Produktivinstanz
-/// der Fassung 10.10.0 ausgemessen wurde. Dasselbe gilt für <c>PUT /api/v1/search</c> in seiner
+/// der Version 10.10.0 ausgemessen wurde. Dasselbe gilt für <c>PUT /api/v1/search</c> in seiner
 /// Eigenheit, dass <c>maxResults</c> eine Schwelle ist und keine Begrenzung.</para>
 /// </remarks>
 public static class TanssRoutes

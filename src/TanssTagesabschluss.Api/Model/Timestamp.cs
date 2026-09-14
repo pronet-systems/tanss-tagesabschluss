@@ -7,7 +7,7 @@ namespace TanssTagesabschluss.Api.Model;
 /// Die Zustände eines Zeitstempels — als Zeichenketten und nicht als Aufzählung.
 /// </summary>
 /// <remarks>
-/// <b>Warum keine <c>enum</c>:</b> Ein unbekannter Wert aus einer späteren TANSS-Fassung brächte
+/// <b>Warum keine <c>enum</c>:</b> Ein unbekannter Wert aus einer späteren TANSS-Version brächte
 /// beim Einlesen einer Aufzählung die <b>ganze</b> Antwort zu Fall — und damit den ganzen Tag,
 /// nicht nur den einen Stempel. Ein Tag, der wegen eines neuen Zustands gar nicht mehr angezeigt
 /// wird, ist schlechter als einer, in dem ein Abschnitt unbekannter Art steht.

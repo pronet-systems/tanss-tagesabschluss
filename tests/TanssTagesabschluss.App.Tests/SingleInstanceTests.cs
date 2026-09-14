@@ -34,7 +34,7 @@ public sealed class SingleInstanceTests
     [Fact]
     public void Ohne_laufende_Instanz_geht_die_Bitte_ins_Leere_und_wirft_nicht()
     {
-        // Gibt es das Signal nicht - etwa weil die andere Fassung gerade beendet wird -,
+        // Gibt es das Signal nicht - etwa weil die andere Instanz gerade beendet wird -,
         // endet der zweite Start still. Eine Fehlermeldung waere hier die schlechtere
         // Antwort.
         Assert.False(SingleInstance.AskRunningInstanceToShow());

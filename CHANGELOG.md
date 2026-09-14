@@ -10,7 +10,7 @@ folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## 0.1.0 — 2026-09-14
 
-Die erste Fassung. Sie ist nie zuvor veröffentlicht worden; was während der Entwicklung
+Die erste Version. Sie ist nie zuvor veröffentlicht worden; was während der Entwicklung
 geändert oder berichtigt wurde, steht deshalb nicht als eigene Zeile hier, sondern ist in die
 Beschreibung eingeflossen. Was gegen eine echte TANSS-Instanz nachgemessen ist und was nicht,
 steht unten.
@@ -48,7 +48,7 @@ steht unten.
 - **Sprachmodell-Unterstützung** für Korrektur und Ausformulierung des Leistungstextes, mit
   eigenem Fenster und einer Plakette, die den Zustand in einem Wort nennt. Standardmässig
   abgeschaltet, mit ausdrücklicher Einwilligung und eigenem Schlüssel.
-- **Aktualisierung und Setup.** Prüfung auf neue Fassungen, Hinweis in der Fußzeile, Setup pro
+- **Aktualisierung und Setup.** Prüfung auf neue Versionen, Hinweis in der Fußzeile, Setup pro
   Benutzer ohne Administratorrechte.
 
 ### Einzurichten, bevor es losgeht
@@ -111,7 +111,7 @@ Alles Folgende ist gegen TANSS 10.10.0 geprüft, nicht aus der Beschreibung übe
   siehe oben.
 - **Das Setup ist nicht signiert.** SmartScreen meldet einen unbekannten Herausgeber. Die
   Veröffentlichungsnotiz nennt den SHA256 zum Vergleich.
-- **Eine neue Fassung wird gemeldet, aber nicht eingespielt.** „Veröffentlichung öffnen" führt
+- **Eine neue Version wird gemeldet, aber nicht eingespielt.** „Veröffentlichung öffnen" führt
   in den Browser; heruntergeladen und installiert wird von Hand.
 - Die Live-Tests unter `TanssTagesabschluss.Live.Tests` laufen nur mit gesetzten
   Umgebungsvariablen und werden sonst übersprungen.

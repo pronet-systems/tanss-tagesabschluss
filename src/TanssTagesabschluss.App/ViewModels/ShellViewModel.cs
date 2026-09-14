@@ -93,12 +93,12 @@ public sealed partial class ShellViewModel : ObservableObject
         ? "Nichts zu beachten. Die Verbindung zu TANSS steht."
         : Status.Message;
 
-    /// <summary>Steht eine neuere Fassung bereit?</summary>
+    /// <summary>Steht eine neuere Version bereit?</summary>
     public bool UpdateAvailable => Update is not null;
 
-    /// <summary>Der Hinweis auf die neue Fassung.</summary>
+    /// <summary>Der Hinweis auf die neue Version.</summary>
     public string UpdateText => Update is { } update
-        ? string.Create(CultureInfo.CurrentCulture, $"Fassung {update.Version} verfügbar")
+        ? string.Create(CultureInfo.CurrentCulture, $"Version {update.Version} verfügbar")
         : string.Empty;
 
     /// <summary>Klappt die Auskunft zur Zustandsplakette auf und zu.</summary>

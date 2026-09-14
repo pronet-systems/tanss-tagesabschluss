@@ -3,7 +3,7 @@ using System.Runtime.Versioning;
 namespace TanssTagesabschluss.App.Runtime;
 
 /// <summary>
-/// Sorgt dafür, dass das Werkzeug genau einmal läuft — und holt die laufende Fassung nach vorn,
+/// Sorgt dafür, dass das Werkzeug genau einmal läuft — und holt die laufende Instanz nach vorn,
 /// wenn jemand es ein zweites Mal startet.
 /// </summary>
 /// <remarks>

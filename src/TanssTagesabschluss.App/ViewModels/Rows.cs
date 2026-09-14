@@ -750,8 +750,8 @@ public sealed partial class GapRow : ObservableObject, IDisposable
                 _beforeRevision = Text;
                 Text = revised.Trim();
                 Status = task == AiTask.Proofread
-                    ? "Text korrigiert. „Zurücknehmen“ stellt die vorherige Fassung wieder her."
-                    : "Text ausformuliert. „Zurücknehmen“ stellt die vorherige Fassung wieder her.";
+                    ? "Text korrigiert. „Zurücknehmen“ stellt den vorherigen Text wieder her."
+                    : "Text ausformuliert. „Zurücknehmen“ stellt den vorherigen Text wieder her.";
             }
         }
         catch (OperationCanceledException)
@@ -786,10 +786,10 @@ public sealed partial class GapRow : ObservableObject, IDisposable
 
         Text = previous;
         _beforeRevision = null;
-        Status = "Vorherige Fassung wiederhergestellt.";
+        Status = "Vorheriger Text wiederhergestellt.";
     }
 
-    /// <summary>Gibt es eine Fassung, die sich zurückholen lässt?</summary>
+    /// <summary>Gibt es einen Text, der sich zurückholen lässt?</summary>
     public bool CanUndoRevision => _beforeRevision is not null;
 
 

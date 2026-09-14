@@ -229,7 +229,7 @@
                                Content="{Binding UpdateText}"
                                FontSize="12"
                                AutomationProperties.AutomationId="Aktualisierungshinweis"
-                               ToolTip="Eine neuere Fassung steht bereit. Anklicken öffnet „Über“ — dort lässt sie sich holen."
+                               ToolTip="Eine neuere Version steht bereit. Anklicken öffnet „Über“ — dort lässt sie sich holen."
                                Visibility="{Binding UpdateAvailable, Converter={StaticResource BoolToVis}}"
                                Click="OnUpdateHintClick" />
                 </StackPanel>

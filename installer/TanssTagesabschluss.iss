@@ -168,7 +168,7 @@ AppMutex={#AppMutexName}
 
 ; Zweites Netz. Der Mutex oben deckt den Regelfall ab; der Neustart-Manager von
 ; Windows findet darüber hinaus jeden Prozess, der eine Zieldatei offen hält —
-; etwa eine hängengebliebene Fassung, die ihren Mutex nicht mehr hält.
+; etwa eine hängengebliebene Instanz, die ihren Mutex nicht mehr hält.
 CloseApplications=yes
 CloseApplicationsFilter=*.exe
 

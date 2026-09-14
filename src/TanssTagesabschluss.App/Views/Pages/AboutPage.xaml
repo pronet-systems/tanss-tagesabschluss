@@ -96,7 +96,7 @@
                                    Command="{Binding CheckCommand}"
                                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
                         <!-- Bewusst der Browser und kein Herunterladen im Fenster: Wer eine
-                             neue Fassung einspielt, soll vorher lesen, was sich geändert hat. -->
+                             neue Version einspielt, soll vorher lesen, was sich geändert hat. -->
                         <ui:Button Content="Veröffentlichung öffnen" Icon="{ui:SymbolIcon Open24}"
                                    Appearance="Secondary"
                                    Command="{Binding OpenReleasesCommand}" />

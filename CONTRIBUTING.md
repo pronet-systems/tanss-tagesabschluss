@@ -84,7 +84,7 @@ das Wort **ungemessen**.
 > plausibel aussieht, ist noch lange nicht wirksam, und ein Verb sagt hier nichts über die
 > Wirkung — die Hälfte der lesenden Routen ist `PUT`.
 
-In den Pull Request gehört dann, gegen welche TANSS-Fassung gemessen wurde und was dabei
+In den Pull Request gehört dann, gegen welche TANSS-Version gemessen wurde und was dabei
 herauskam: Anfrage, Antwort, Statuscode.
 
 ### Tests gegen eine echte Instanz
@@ -158,7 +158,7 @@ Grund.
   nicht in einem Issue und nicht in einem Protokollauszug. `config.json`, `credentials.dat`,
   `ai.dat`, `proxy.dat` und `*.log` stehen deshalb in `.gitignore`.
 - **Kein eigener Aktualisierungsmechanismus neben dem vorhandenen.** Aktualisiert wird über eine
-  neue Fassung des Setups.
+  neue Version des Setups.
 
 ## Sicherheitslücken
 

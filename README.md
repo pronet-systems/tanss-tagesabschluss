@@ -3,11 +3,6 @@
 Findet die Zeitfenster, in denen gearbeitet, aber **keine Leistung erfasst** wurde — und
 schliesst sie.
 
-> **Stand: in Entwicklung.** Was fertig ist und was nicht, steht unten unter
-> [Stand der Umsetzung](#stand-der-umsetzung). Insbesondere: Mehrere Annahmen über TANSS sind
-> aus der Beschreibung übernommen und **noch nicht gegen eine Instanz gemessen**. Sie stehen
-> als Tests in `tests/TanssTagesabschluss.Live.Tests` bereit.
-
 ---
 
 ## Worum es geht
@@ -220,38 +215,50 @@ Ein Setup entsteht mit `build\publish.ps1`; Einzelheiten in
 
 ## Stand der Umsetzung
 
-**Fertig und geprüft (107 Tests):**
+**Fertig und geprüft (156 Tests):**
 
 - Die Lückenrechnung samt Grenzfällen: Pause, halber Urlaubstag, Feiertag, laufender Tag,
-  vergessener Tag, bedingter Feiertag, Home-Office.
+  vergessener Tag, bedingter Feiertag, Home-Office, zu spät eingestempelt.
 - Die Mengenlehre darunter (`TimeSegment`) — halboffene Intervalle, Verschmelzen, Abziehen.
 - Der Riegel gegen doppelt gebuchte Leistungen, einschliesslich des Falls „Prüfung selbst
-  fehlgeschlagen“.
+  fehlgeschlagen“, und die Zuordnung, ohne die TANSS eine Leistung ablehnt.
 - Die Prüfung der Konfiguration und das Lesen/Schreiben der Datei.
 - Der Feiertagszwischenspeicher, einschliesslich „veralteter Kalender ist besser als keiner“.
-- Die Eigenheiten des TANSS-Formats: `types` als Objekt **und** als Feld, `THRUSDAY`,
-  `24:00`, Sekunden gegen Minuten.
+- Die Eigenheiten des TANSS-Formats: `types` als Objekt **und** als Feld, die
+  Abwesenheitsliste als Feld **und** als Objekt, `THRUSDAY`, Sekunden gegen Minuten.
 
-**Gebaut, aber noch nicht gegen eine Instanz gemessen:**
+**Gegen eine Instanz nachgemessen (TANSS 10.10.0):**
 
-- Sämtliche Routen dieses Werkzeugs. Die Beschreibung zu 10.10.0 ist die Quelle; die Tests in
-  `Live.Tests` sind vorbereitet und benannt.
-- Besonders offen: ob `GET /api/erp/v1/companies/employees` die eigene Firma im
-  `meta`-Block nennt (daran hängt die Bundeslandbestimmung), und ob `/api/erp/v1` ohne
-  `loggedInUserId` antwortet.
-- Ob `POST /api/v1/supports/properties` die Initialisierer `TICKET` und `COMPANY` annimmt.
-  Die Aufzählung des Servers führt beide; gemessen ist im Schwesterprojekt nur `TIMER`.
+- Die eigene Firma über `GET /api/v1/employees/ownState` — mit `loggedInUserId` HTTP 200, ohne
+  ihn HTTP 403. Der ERP-Weg über `/api/erp/v1/companies/employees` antwortet dort mit 403 und
+  bleibt nur als Rückfall.
+- `POST /api/v1/supports/properties` nimmt `TICKET` **und** `COMPANY` an, bereitet aber ohne
+  Zuordnung vor; ohne sie lehnt `POST /api/v1/supports` mit
+  `SupportMissingAssignmentException` ab.
+- `PUT /api/v1/vacationRequests/list` liefert ein Objekt und nicht das beschriebene Feld.
+- `GET /api/v1/timestamps/statistics` braucht rund 13 Sekunden, unabhängig vom Zeitraum.
+- Das Arbeitszeitmodell ist **nicht** zu bekommen: TANSS nennt Kennung und Namen, aber keinen
+  Wochenplan. Deshalb ist die Arbeitswoche eine Pflichtangabe der Einstellungen.
+
+Die Prüfung läuft auch im Betrieb: Einstellungen → *Verbindung prüfen* fragt zehn Routen
+lesend ab und nennt zu jeder ihren Befund. Die Tests unter `tests/TanssTagesabschluss.Live.Tests`
+laufen gegen eine echte Instanz, sobald `TANSS_BASE_URL`, `TANSS_USER` und `TANSS_PASSWORD`
+gesetzt sind, und werden sonst übersprungen.
 
 **Noch nicht gebaut:**
 
-- Die Oberfläche der Sprachmodell-Einstellungen (Anbieter, Modell, Schlüssel, Einwilligung).
-  Die Schicht darunter ist vollständig; die Werte lassen sich derzeit nur in `config.json`
-  setzen.
-- Das Herunterladen und Einspielen einer neuen Fassung aus der Anwendung heraus. Die Prüfung
+- Das Herunterladen und Einspielen einer neuen Version aus der Anwendung heraus. Die Prüfung
   und der Hinweis stehen; der Knopf führt bisher zur Veröffentlichungsseite.
+- Eine Signatur für das Setup. Ohne Zertifikat meldet SmartScreen einen unbekannten
+  Herausgeber; die Veröffentlichungsnotiz nennt dafür den SHA256 zum Vergleich.
 
 ---
 
 ## Lizenz
 
-[MIT](LICENSE) — ProNet Systems GmbH.
+MIT — siehe [LICENSE](LICENSE). Copyright (c) 2026 ProNet Systems GmbH.
+
+TANSS ist ein Produkt der HUCK IT GmbH, Roßdorf (Amtsgericht Darmstadt, HRB 95700). Dieses
+Projekt ist ein unabhängiges Werkzeug, steht in keiner Verbindung zur HUCK IT GmbH und wird
+von ihr weder unterstützt noch geprüft. Marken gehören ihren jeweiligen Inhabern; die Nennung
+dient allein dazu, zu sagen, wofür dieses Werkzeug gemacht ist.

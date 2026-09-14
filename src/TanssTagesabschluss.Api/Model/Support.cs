@@ -180,7 +180,7 @@ public static class PlanningType
 /// <c>TODO</c>. Ein erfundener Wert käme als Leistung ohne Vorbelegung zurück, und das fiele
 /// erst auf der Rechnung auf.</para>
 /// <para><b>Gemessen ist davon nur <see cref="Timer"/></b> — im Schwesterprojekt, gegen eine
-/// Instanz der Fassung 10.10.0. <see cref="Ticket"/> und <see cref="Company"/> sind über die
+/// Instanz der Version 10.10.0. <see cref="Ticket"/> und <see cref="Company"/> sind über die
 /// Aufzählung des Servers <b>belegt</b>, aber noch nicht gemessen; siehe
 /// <c>ISupportRepository.PrepareAsync</c>, das einen Fehlschlag deshalb als solchen meldet,
 /// statt eine unvorbelegte Leistung zu buchen.</para>
