@@ -279,7 +279,36 @@
                         </Grid.ColumnDefinitions>
 
                         <StackPanel Grid.Column="0">
-                            <ui:TextBlock Text="Sprachmodell-Unterstützung" FontTypography="Subtitle" />
+                            <StackPanel Orientation="Horizontal">
+                                <ui:TextBlock Text="Sprachmodell-Unterstützung"
+                                              FontTypography="Subtitle"
+                                              VerticalAlignment="Center" Margin="0,0,10,0" />
+
+                                <!-- Die Frage beim Ueberfliegen lautet: an oder aus? Der Satz
+                                     darunter beantwortet sie auch, aber erst nach zwei Zeilen.
+
+                                     Die Farbe folgt dem Zustand ueber Ausloeser und nicht ueber
+                                     einen Pinsel im Ansichtsmodell: Ein Pinsel dort waere beim
+                                     Wechsel zwischen heller und dunkler Darstellung
+                                     eingefroren. Derselbe Griff wie bei der Zustandsplakette in
+                                     der Fusszeile. -->
+                                <Border VerticalAlignment="Center">
+                                    <Border.Style>
+                                        <Style TargetType="Border" BasedOn="{StaticResource StatePillOnColor}">
+                                            <Setter Property="Background" Value="{DynamicResource StateIdleBrush}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding AiBadgeText}" Value="eingeschaltet">
+                                                    <Setter Property="Background" Value="{DynamicResource StateRunningBrush}" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding AiBadgeText}" Value="gesperrt">
+                                                    <Setter Property="Background" Value="{DynamicResource StatePendingBrush}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <ui:TextBlock Text="{Binding AiBadgeText}" FontSize="11" />
+                                </Border>
+                            </StackPanel>
                             <!-- Der einzige Ort, an dem Text das Haus verlässt. Das steht
                                  hier und nicht im Kleingedruckten. -->
                             <ui:TextBlock Margin="0,4,0,0" FontSize="12" TextWrapping="Wrap"

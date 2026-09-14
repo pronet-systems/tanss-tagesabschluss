@@ -358,6 +358,39 @@ public sealed partial class SettingsViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Ein Wort für die Plakette an der Karte — der Satz daneben sagt das Übrige.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Warum ein Wort und kein Satz.</b> Der Satz steht schon darunter. Was auf einen
+    /// Blick fehlte, ist die Antwort auf die eine Frage, die man beim Überfliegen hat: an oder
+    /// aus? Dafür taugt ein Satz nicht, der mit „Eingeschaltet, aber ohne Einwilligung“ beginnt
+    /// und über zwei Zeilen läuft.</para>
+    /// <para><b>Drei Zustände und nicht zwei.</b> „Gesperrt“ ist etwas anderes als „aus“: Ohne
+    /// Einwilligung <i>kann</i> nichts übermittelt werden; mit Einwilligung und abgeschalteter
+    /// Unterstützung <i>soll</i> es nur gerade nicht. Beides zu „aus“ zusammenzuziehen
+    /// verschwiege, dass im einen Fall noch eine Entscheidung aussteht.</para>
+    /// <para><b>Die Worte sind zugleich Auslöser</b> — die Farbe der Plakette hängt in der
+    /// Oberfläche an ihnen. Wer sie hier ändert, ändert sie dort mit.</para>
+    /// </remarks>
+    public string AiBadgeText
+    {
+        get
+        {
+            if (_context.Composition?.Config.Ai is not { } ai)
+            {
+                return "nicht eingerichtet";
+            }
+
+            if (!ai.HasConsent)
+            {
+                return "gesperrt";
+            }
+
+            return ai.IsUsable ? "eingeschaltet" : "aus";
+        }
+    }
+
     /// <summary>Der Zustand der Sprachmodell-Unterstützung, in einem Satz.</summary>
     public string AiText
     {
@@ -731,11 +764,16 @@ public sealed partial class SettingsViewModel : ObservableObject
 
         OnPropertyChanged(nameof(TokenText));
         OnPropertyChanged(nameof(AiText));
+        OnPropertyChanged(nameof(AiBadgeText));
         return true;
     }
 
     /// <summary>Liest die Sprachmodell-Angaben neu — nach dem Schliessen des eigenen Fensters.</summary>
-    public void RefreshAi() => OnPropertyChanged(nameof(AiText));
+    public void RefreshAi()
+    {
+        OnPropertyChanged(nameof(AiText));
+        OnPropertyChanged(nameof(AiBadgeText));
+    }
 
     /// <summary>
     /// Baut einen Zugang aus dem, was gerade im Formular steht.

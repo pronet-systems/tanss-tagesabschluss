@@ -14,11 +14,9 @@ folgen [Semantic Versioning](https://semver.org/lang/de/).
   `OnStartup` verpufft — die Nachrichtenschleife pumpt dort noch nicht. Wer die Anwendung
   beendete und binnen zwei Sekunden neu startete, sah kein Fenster mehr; das Werkzeug lief im
   Verborgenen weiter. Das Beenden geht jetzt über den Dispatcher.
-- **Nach dem Beenden startete das Werkzeug unter Umständen nicht mehr.** Beim Freigeben wurde
-  auf das Abmelden der Signalüberwachung nicht gewartet; das benannte Ereignis lebte noch kurz
-  weiter. Ein sofort danach gestartetes Werkzeug fand es, hielt die längst beendete Instanz für
-  laufend und beendete sich still — wer schliesst und gleich wieder startet, sah kein Fenster.
-  Aufgefallen in der Prüfung, nicht im Betrieb.
+- **Beim Freigeben wird auf das Abmelden der Signalüberwachung gewartet.** Sonst kann ein
+  Rückruf noch laufen, während das Signal schon fällt. Auf den Start hat das keinen Einfluss —
+  ob eine Instanz läuft, entscheidet der Mutex.
 - **Das Anlegen einer Leistung schlug immer fehl.** TANSS bereitet eine Leistung mit
   `linkTypeId = 0` und `linkId = 0` vor — aus einem Ticket genauso wie aus einer Firma. Wer
   diesen Entwurf unverändert anlegt, bekommt HTTP 404 mit `SupportMissingAssignmentException`
@@ -28,6 +26,11 @@ folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Geändert
 
+- **Die Sprachmodell-Unterstützung trägt eine Plakette** — „eingeschaltet", „aus", „gesperrt"
+  oder „nicht eingerichtet", farbig wie im Schwesterprojekt. Die Frage beim Überfliegen lautet
+  „an oder aus?", und dafür taugt der Satz darunter nicht, der über zwei Zeilen läuft.
+  „Gesperrt" ist dabei etwas anderes als „aus": Ohne Einwilligung *kann* nichts übermittelt
+  werden, mit Einwilligung und abgeschalteter Unterstützung *soll* es nur gerade nicht.
 - **Die drei Auswahlfelder tragen Platzhalter** — „Firma", „Ticket", „Gerät". Drei leere
   Kästchen nebeneinander sagen niemandem, welches welches ist. „— ohne Gerät —" steht
   weiterhin in der Liste, ist aber nicht mehr vorbelegt.

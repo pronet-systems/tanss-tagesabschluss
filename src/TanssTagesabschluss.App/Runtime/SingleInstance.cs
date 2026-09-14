@@ -128,14 +128,14 @@ public sealed class SingleInstance : IDisposable
 
     /// <summary>Gibt Mutex und Signal frei.</summary>
     /// <remarks>
-    /// <para><b>Auf das Abmelden wird gewartet, und das ist kein Feinschliff.</b>
-    /// <c>Unregister(null)</c> kehrt sofort zurück; der Vorrat hält seine eigene Kopie des
-    /// Signals noch, bis die Abmeldung wirklich durch ist. Solange lebt das <b>benannte</b>
-    /// Ereignis im Kern weiter — und ein frisch gestartetes Werkzeug fände es, hielte eine
-    /// längst beendete Instanz für laufend und beendete sich still. Wer die Anwendung schliesst
-    /// und sofort wieder startet, sähe schlicht kein Fenster.</para>
-    /// <para>Gefallen ist das in der Prüfung: Zwei Prüfungen in derselben Sitzung, und die
-    /// zweite fand das Signal der ersten noch vor.</para>
+    /// <para><b>Auf das Abmelden wird gewartet.</b> <c>Unregister(null)</c> kehrt sofort
+    /// zurück, während ein Rückruf noch laufen kann — und der griffe dann auf ein Objekt zu,
+    /// das gerade freigegeben wird. Mit Wartemarke ist die Abmeldung durch, bevor das Signal
+    /// fällt.</para>
+    /// <para><b>Auf den Start hat das keinen Einfluss</b>, und das ist wichtig zu wissen: Ob
+    /// eine Instanz läuft, entscheidet der <b>Mutex</b> und nicht dieses Ereignis (siehe
+    /// <c>App.OnStartup</c>). Ein Ereignis, das einen Moment nachhallt, kostet höchstens ein
+    /// Signal ins Leere.</para>
     /// <para><b>Mit Frist.</b> Hängt ein Rückruf, ist das Beenden wichtiger als das saubere
     /// Abmelden — zwei Sekunden sind mehr, als ein Rückruf hier je braucht.</para>
     /// </remarks>
