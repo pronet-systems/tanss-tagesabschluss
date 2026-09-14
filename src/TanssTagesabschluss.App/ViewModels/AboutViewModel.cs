@@ -50,8 +50,39 @@ public sealed partial class AboutViewModel : ObservableObject
         ? version.Split('+')[0]
         : "unbekannt";
 
+    /// <summary>Der Produktname.</summary>
+    public static string Product => "TANSS Tagesabschluss";
+
     /// <summary>Der Hersteller.</summary>
     public static string Company => "ProNet Systems GmbH";
+
+    /// <summary>Der Urheberrechtsvermerk.</summary>
+    public static string Copyright =>
+        Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyCopyrightAttribute>()?.Copyright
+        ?? "Copyright (c) 2026 ProNet Systems GmbH";
+
+    /// <summary>
+    /// Die .NET-Laufzeit, mit der das Werkzeug gerade läuft.
+    /// </summary>
+    /// <remarks>
+    /// Steht hier, weil es bei einer Rückfrage die zweite Frage ist — und weil dieses Werkzeug
+    /// in sich geschlossen ausgeliefert wird: Was hier steht, ist die mitgelieferte Laufzeit
+    /// und nicht die des Rechners.
+    /// </remarks>
+    public static string Runtime => System.Runtime.InteropServices.RuntimeInformation
+        .FrameworkDescription;
+
+    /// <summary>Das Betriebssystem.</summary>
+    public static string OperatingSystemName =>
+        System.Runtime.InteropServices.RuntimeInformation.OSDescription
+        + " (" + System.Runtime.InteropServices.RuntimeInformation.OSArchitecture + ")";
+
+    /// <summary>Die Anschrift des Hauses.</summary>
+    private const string Website = "https://www.pronet-systems.de";
+
+    /// <summary>Öffnet die Anschrift im eingestellten Browser.</summary>
+    [RelayCommand]
+    private static void OpenWebsite() => Open(Website);
 
     /// <summary>Wo die Konfiguration liegt.</summary>
     public static string ConfigPath => StoragePaths.ConfigFile;

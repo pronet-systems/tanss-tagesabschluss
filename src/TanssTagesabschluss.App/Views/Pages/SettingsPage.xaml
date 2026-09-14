@@ -4,20 +4,66 @@
       xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
       xmlns:design="clr-namespace:TanssTagesabschluss.App.Design"
       Style="{StaticResource PageSurface}"
+      ScrollViewer.CanContentScroll="False"
       Title="Einstellungen">
 
     <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="{StaticResource PagePadding}" MaxWidth="820"
+        <StackPanel Margin="{StaticResource PagePadding}" MaxWidth="980"
                     HorizontalAlignment="Left" design:Spacing.Size="16">
 
-            <StackPanel>
-                <ui:TextBlock Text="Einstellungen" FontTypography="Title" />
-                <ui:TextBlock Margin="0,4,0,0" TextWrapping="Wrap"
-                              Text="Vier Angaben, von denen zwei sich selbst ermitteln."
-                              Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-            </StackPanel>
+            <!-- ===== Kopf: Speichern und Prüfen stehen OBEN ==========================
+                 Beide standen einmal ganz unten. Wer eine Einstellung ändert, scrollt
+                 nicht erst ans Seitenende, um sie zu sichern — und wer prüfen will, sucht
+                 die Schaltfläche dort, wo die übrigen Seiten ihre führen. -->
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
 
-            <!-- ===== Verbindung ======================================================= -->
+                <StackPanel Grid.Column="0">
+                    <ui:TextBlock Text="Einstellungen" FontTypography="Title" />
+                    <ui:TextBlock Margin="0,4,0,0" TextWrapping="Wrap"
+                                  Text="Drei Angaben, von denen zwei sich selbst ermitteln."
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top"
+                            design:Spacing.Size="8">
+                    <ui:Button Content="Verbindung prüfen" Icon="{ui:SymbolIcon Stethoscope24}"
+                               Appearance="Secondary"
+                               ToolTip="Fragt TANSS nacheinander alles ab, was dieses Werkzeug braucht — ausschliesslich lesend."
+                               Command="{Binding CheckCommand}"
+                               IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
+                    <ui:Button Content="Speichern" Icon="{ui:SymbolIcon Save24}"
+                               Appearance="Primary"
+                               Command="{Binding SaveSettingsCommand}" />
+                </StackPanel>
+            </Grid>
+
+            <ui:ProgressRing IsIndeterminate="True" Width="28" Height="28"
+                             HorizontalAlignment="Left"
+                             Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}" />
+
+            <ui:TextBlock Text="{Binding Status}" TextWrapping="Wrap"
+                          Visibility="{Binding Status, Converter={StaticResource NullToCollapsed}}" />
+
+            <ui:InfoBar Severity="Warning" IsClosable="False" IsOpen="True"
+                        Title="Nicht gespeichert"
+                        Visibility="{Binding HasProblems, Converter={StaticResource BoolToVis}}">
+                <ui:InfoBar.Content>
+                    <ItemsControl ItemsSource="{Binding Problems}" Margin="0,8,0,0">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <ui:TextBlock Text="{Binding}" TextWrapping="Wrap"
+                                              FontSize="12" Margin="0,0,0,4" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ui:InfoBar.Content>
+            </ui:InfoBar>
+
+            <!-- ===== Verbindung ====================================================== -->
             <Border Style="{StaticResource CardBorder}">
                 <StackPanel design:Spacing.Size="12">
                     <ui:TextBlock Text="Verbindung zu TANSS" FontTypography="Subtitle" />
@@ -28,7 +74,7 @@
                                     PlaceholderText="https://tanss.beispiel.de/backend" />
                         <!-- Die häufigste Fehlerquelle überhaupt: Zeigt die Adresse auf die
                              Weboberfläche statt auf /backend, antwortet diese auf jede Anfrage
-                             mit HTTP 400 — und der Fehler sieht wie ein Programmfehler aus. -->
+                             mit HTTP 400, und der Fehler sieht wie ein Programmfehler aus. -->
                         <ui:TextBlock FontSize="11" TextWrapping="Wrap"
                                       Text="Muss auf /backend enden. Zeigt sie auf die Weboberfläche, antwortet TANSS auf jede Anfrage mit HTTP 400."
                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
@@ -51,7 +97,9 @@
                             <!-- KEINE Bindung: Ein gebundenes Kennwort läge im Speicher des
                                  Ansichtsmodells, solange die Seite offen ist. Gelesen wird es
                                  im Quelltext dahinter und nur für die Dauer des Aufrufs. -->
-                            <PasswordBox x:Name="Password" Height="32" VerticalContentAlignment="Center" />
+                            <PasswordBox x:Name="Password" Height="32"
+                                         VerticalContentAlignment="Center"
+                                         KeyDown="OnPasswordKeyDown" />
                         </StackPanel>
                     </Grid>
 
@@ -60,18 +108,113 @@
                                    Icon="{ui:SymbolIcon Key24}"
                                    Click="OnSignInClick"
                                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
-                        <ui:TextBlock Text="{Binding TokenText}" VerticalAlignment="Center"
-                                      FontSize="12"
-                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        <ui:Button Content="Token erneuern" Icon="{ui:SymbolIcon ArrowSync24}"
+                                   Appearance="Secondary"
+                                   ToolTip="Prägt nur, wenn die Restlaufzeit unter die eingestellte Schwelle gefallen ist — und übernimmt das neue Token erst nach bestandener Probe."
+                                   Command="{Binding RotateTokenCommand}"
+                                   IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
                     </StackPanel>
 
-                    <StackPanel Orientation="Horizontal" design:Spacing.Size="12">
-                        <ui:TextBlock Text="Mitarbeiterkennung" VerticalAlignment="Center" FontSize="12" />
-                        <ui:NumberBox Value="{Binding EmployeeId, Mode=TwoWay}" MinWidth="100"
-                                      ToolTip="Sie entscheidet, wessen Zeiten geprüft werden. Die Anmeldung setzt sie selbst." />
-                        <CheckBox Content="TLS-Zertifikat prüfen" VerticalAlignment="Center"
-                                  IsChecked="{Binding VerifyTls, Mode=TwoWay}" />
-                    </StackPanel>
+                    <!-- Die Mitarbeiterkennung ist eine ANZEIGE und kein Eingabefeld. Sie
+                         kommt aus der Anmeldung; sie tippen zu lassen schüfe nur die
+                         Gelegenheit, sie falsch zu setzen — und dann prüft das Werkzeug
+                         klaglos den Tag eines Kollegen. -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="160" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <ui:TextBlock Grid.Row="0" Grid.Column="0" Text="Mitarbeiter"
+                                      Margin="0,0,0,6" FontSize="12"
+                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        <ui:TextBlock Grid.Row="0" Grid.Column="1" Margin="0,0,0,6"
+                                      Text="{Binding EmployeeText}"
+                                      Style="{StaticResource TabularText}"
+                                      HorizontalAlignment="Left"
+                                      ToolTip="Kommt aus der Anmeldung. An dieser Kennung hängt, wessen Zeiten geprüft werden." />
+
+                        <ui:TextBlock Grid.Row="1" Grid.Column="0" Text="Arbeitstoken"
+                                      FontSize="12"
+                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        <ui:TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding TokenText}"
+                                      TextWrapping="Wrap" HorizontalAlignment="Left" />
+                    </Grid>
+
+                    <CheckBox Content="TLS-Zertifikat prüfen"
+                              IsChecked="{Binding VerifyTls, Mode=TwoWay}"
+                              ToolTip="Abgeschaltet ist die Verbindung gegen einen Angreifer in der Mitte wertlos." />
+
+                    <ui:TextBlock Text="{Binding ConnectionStatus}" TextWrapping="Wrap"
+                                  FontSize="12"
+                                  Visibility="{Binding ConnectionStatus, Converter={StaticResource NullToCollapsed}}"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+            </Border>
+
+            <!-- ===== Letzte Prüfung ================================================== -->
+            <Border Style="{StaticResource CardBorder}">
+                <StackPanel>
+                    <ui:TextBlock Text="Letzte Prüfung" FontTypography="Subtitle"
+                                  Margin="0,0,0,12" />
+
+                    <!-- Solange nichts geprüft wurde, steht hier auch nichts. Fest eingebaute
+                         grüne Haken zeigten im Schwesterprojekt einmal „Token trägt“, während
+                         dasselbe Token auf jede Anfrage eine 403 erzeugte. -->
+                    <ui:TextBlock TextWrapping="Wrap"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                  Visibility="{Binding HasChecks, Converter={StaticResource InverseBoolToVis}}"
+                                  Text="Noch nicht geprüft. „Verbindung prüfen“ oben fragt TANSS tatsächlich — Zeiterfassung, Leistungen, Abwesenheiten, eigene Firma, Tickets und Feiertage, jede mit ihrer Route. Erst danach steht hier ein Befund." />
+
+                    <ItemsControl ItemsSource="{Binding Checks}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,0,0,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Zeichen und Farbe folgen der Stufe. „Nicht geprüft“ ist
+                                         eine eigene Stufe und sieht nicht aus wie „in Ordnung“. -->
+                                    <ui:SymbolIcon Grid.Column="0" Margin="0,0,10,0"
+                                                   VerticalAlignment="Top">
+                                        <ui:SymbolIcon.Style>
+                                            <Style TargetType="ui:SymbolIcon">
+                                                <Setter Property="Symbol" Value="QuestionCircle24" />
+                                                <Setter Property="Foreground" Value="{DynamicResource StateIdleBrush}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsOk}" Value="True">
+                                                        <Setter Property="Symbol" Value="CheckmarkCircle24" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource StateRunningBrush}" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding IsWarn}" Value="True">
+                                                        <Setter Property="Symbol" Value="Warning24" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource StatePendingBrush}" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding IsFail}" Value="True">
+                                                        <Setter Property="Symbol" Value="DismissCircle24" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource StateFailedBrush}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </ui:SymbolIcon.Style>
+                                    </ui:SymbolIcon>
+
+                                    <StackPanel Grid.Column="1">
+                                        <ui:TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                        <ui:TextBlock Text="{Binding Detail}" FontSize="12"
+                                                      TextWrapping="Wrap"
+                                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
                 </StackPanel>
             </Border>
 
@@ -85,9 +228,12 @@
 
                     <StackPanel Orientation="Horizontal" design:Spacing.Size="8">
                         <ui:Button Content="Ermitteln" Icon="{ui:SymbolIcon Search24}"
+                                   Appearance="Secondary"
+                                   ToolTip="Funktioniert unmittelbar nach der Anmeldung — ohne vorheriges Speichern."
                                    Command="{Binding DetectCompanyCommand}"
                                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
-                        <ui:TextBlock Text="{Binding OwnCompanyName}" VerticalAlignment="Center" />
+                        <ui:TextBlock Text="{Binding OwnCompanyName}" VerticalAlignment="Center"
+                                      FontWeight="SemiBold" />
                     </StackPanel>
 
                     <Grid>
@@ -100,14 +246,14 @@
                         <StackPanel Grid.Column="0" design:Spacing.Size="4">
                             <ui:TextBlock Text="Postleitzahl" FontSize="12" />
                             <ui:TextBox Text="{Binding PostalCode, UpdateSourceTrigger=PropertyChanged}"
-                                        MinWidth="100" />
+                                        MinWidth="110" />
                         </StackPanel>
 
                         <StackPanel Grid.Column="2" design:Spacing.Size="4">
                             <ui:TextBlock Text="Bundesland" FontSize="12" />
                             <ComboBox ItemsSource="{Binding FederalStates}"
                                       SelectedItem="{Binding FederalState, Mode=TwoWay}"
-                                      MinWidth="240" HorizontalAlignment="Left" />
+                                      MinWidth="260" HorizontalAlignment="Left" />
                         </StackPanel>
                     </Grid>
 
@@ -116,6 +262,38 @@
                          Erkennung darf ihn nicht stillschweigend übergehen. -->
                     <CheckBox Content="Bundesland von Hand gesetzt (nicht mehr selbsttätig überschreiben)"
                               IsChecked="{Binding FederalStateIsManual, Mode=TwoWay}" />
+
+                    <ui:TextBlock Text="{Binding CompanyStatus}" TextWrapping="Wrap" FontSize="12"
+                                  Visibility="{Binding CompanyStatus, Converter={StaticResource NullToCollapsed}}"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+            </Border>
+
+            <!-- ===== Sprachmodell-Unterstützung ====================================== -->
+            <Border Style="{StaticResource CardBorder}">
+                <StackPanel design:Spacing.Size="12">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0">
+                            <ui:TextBlock Text="Sprachmodell-Unterstützung" FontTypography="Subtitle" />
+                            <!-- Der einzige Ort, an dem Text das Haus verlässt. Das steht
+                                 hier und nicht im Kleingedruckten. -->
+                            <ui:TextBlock Margin="0,4,0,0" FontSize="12" TextWrapping="Wrap"
+                                          Text="Korrigiert und formuliert den Leistungstext aus. Hier verlässt als Einziges Text das Haus — standardmässig abgeschaltet, mit ausdrücklicher Einwilligung und eigenem Schlüssel."
+                                          Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+
+                        <ui:Button Grid.Column="1" VerticalAlignment="Top"
+                                   Content="Einstellen" Icon="{ui:SymbolIcon Sparkle24}"
+                                   Appearance="Secondary"
+                                   Command="{Binding OpenAiSettingsCommand}" />
+                    </Grid>
+
+                    <ui:TextBlock Text="{Binding AiText}" TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
 
@@ -138,7 +316,7 @@
                             <CheckBox Content="Morgens den Vortag prüfen"
                                       IsChecked="{Binding MorningEnabled, Mode=TwoWay}" />
                             <ui:TextBox Text="{Binding MorningTime, UpdateSourceTrigger=PropertyChanged}"
-                                        PlaceholderText="08:30" MaxWidth="100"
+                                        PlaceholderText="08:30" MaxWidth="110"
                                         HorizontalAlignment="Left" />
                         </StackPanel>
 
@@ -146,7 +324,7 @@
                             <CheckBox Content="Abends vor Feierabend erinnern"
                                       IsChecked="{Binding EveningEnabled, Mode=TwoWay}" />
                             <ui:TextBox Text="{Binding EveningTime, UpdateSourceTrigger=PropertyChanged}"
-                                        PlaceholderText="16:45" MaxWidth="100"
+                                        PlaceholderText="16:45" MaxWidth="110"
                                         HorizontalAlignment="Left" />
                         </StackPanel>
                     </Grid>
@@ -164,46 +342,22 @@
                     <ui:TextBlock Text="Was als Lücke gilt" FontTypography="Subtitle" />
 
                     <StackPanel Orientation="Horizontal" design:Spacing.Size="12">
-                        <ui:TextBlock Text="Mindestdauer (Minuten)" VerticalAlignment="Center" FontSize="12" />
-                        <ui:NumberBox Value="{Binding MinimumMinutes, Mode=TwoWay}" MinWidth="90"
+                        <ui:TextBlock Text="Mindestdauer (Minuten)" VerticalAlignment="Center"
+                                      FontSize="12" />
+                        <ui:NumberBox Value="{Binding MinimumMinutes, Mode=TwoWay}" MinWidth="100"
                                       ToolTip="Kürzere Zeitfenster stehen nicht in der Liste. 15 Minuten ist die übliche Abrechnungseinheit." />
 
-                        <ui:TextBlock Text="Rückblick (Tage)" VerticalAlignment="Center" FontSize="12" />
-                        <ui:NumberBox Value="{Binding HistoryDays, Mode=TwoWay}" MinWidth="90"
+                        <ui:TextBlock Text="Rückblick (Tage)" VerticalAlignment="Center"
+                                      FontSize="12" />
+                        <ui:NumberBox Value="{Binding HistoryDays, Mode=TwoWay}" MinWidth="100"
                                       ToolTip="Wie weit der Überblick zurückreicht." />
                     </StackPanel>
                 </StackPanel>
             </Border>
 
-            <!-- ===== Speichern und Beanstandungen ==================================== -->
-            <StackPanel design:Spacing.Size="8">
-                <StackPanel Orientation="Horizontal" design:Spacing.Size="12">
-                    <ui:Button Appearance="Primary" Content="Speichern"
-                               Icon="{ui:SymbolIcon Save24}"
-                               Command="{Binding SaveSettingsCommand}" />
-                    <ui:TextBlock Text="{Binding Status}" VerticalAlignment="Center"
-                                  TextWrapping="Wrap" FontSize="12" />
-                </StackPanel>
-
-                <ui:InfoBar Severity="Warning" IsClosable="False" IsOpen="True"
-                            Title="Nicht gespeichert"
-                            Visibility="{Binding HasProblems, Converter={StaticResource BoolToVis}}">
-                    <ui:InfoBar.Content>
-                        <ItemsControl ItemsSource="{Binding Problems}" Margin="0,8,0,0">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <ui:TextBlock Text="{Binding}" TextWrapping="Wrap"
-                                                  FontSize="12" Margin="0,0,0,4" />
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </ui:InfoBar.Content>
-                </ui:InfoBar>
-
-                <ui:TextBlock FontSize="11" TextWrapping="Wrap"
-                              Text="{Binding ConfigPath, StringFormat=Die Konfiguration liegt unter {0}}"
-                              Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-            </StackPanel>
+            <ui:TextBlock FontSize="11" TextWrapping="Wrap"
+                          Text="{Binding ConfigPath, StringFormat=Die Konfiguration liegt unter {0}}"
+                          Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
         </StackPanel>
     </ScrollViewer>
 </Page>

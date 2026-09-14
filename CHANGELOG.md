@@ -8,6 +8,43 @@ folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## Unveröffentlicht
 
+### Behoben
+
+- **Die eigene Firma wird jetzt gefunden.** Bisher lief die Erkennung über
+  `GET /api/erp/v1/companies/employees`; auf unserer Instanz antwortet dieser Weg mit 403, und
+  „Ermitteln“ blieb ohne Ergebnis. Den Vortritt hat nun
+  `GET /api/v1/employees/ownState` — dort steht die eigene Firma als Zahl, samt Anschrift, und
+  ein Aufruf genügt. Nachgemessen gegen 10.10.0: HTTP 200 mit `loggedInUserId`, HTTP 403 ohne.
+  Der alte Weg bleibt als Rückfall; scheitern beide, nennt die Meldung beide Gründe.
+- **Das Firmenlogo ist auf der Seite „Über“ wieder zu sehen.** Der Datei fehlte im Kopf ein
+  einzelnes Byte (`0D`), abhandengekommen bei einer Umwandlung von Zeilenenden. WPF zeichnet ein
+  unlesbares Bild ohne jede Meldung einfach nicht — ein Fehler, den nur bemerkt, wer weiss, dass
+  dort ein Logo stehen soll. Ein Test prüft die Kennfolge jetzt bei jedem Bau.
+- **Die Mitarbeiterkennung wird gegen das Token geprüft.** Weicht die hinterlegte Kennung von
+  der des angemeldeten Benutzers ab, gilt die des Tokens und die Einstellungen sagen es. Mit der
+  falschen Kennung hätte das Werkzeug fremde Zeiten gelesen und zu fremden Leistungen gemahnt.
+- **Vier Fehlermeldungen verwiesen auf das Schwesterwerkzeug.** Wer kein Token hatte, wurde
+  gebeten, `tanss-logwatch setup` auszuführen — ein Befehl, den es hier nicht gibt. Sie
+  verweisen jetzt auf die Anmeldung in den Einstellungen.
+
+### Neu
+
+- **Verbindungsprüfung in den Einstellungen.** Zehn lesende Stichproben, jede mit ihrer Route
+  und ihrem Befund: Erreichbarkeit, Token, Zeiterfassung, Arbeitszeitmodell, Leistungen,
+  Abwesenheiten, eigene Firma, Tickets, Feiertage, Zertifikatsprüfung.
+- **Speichern und Prüfen stehen oben** auf der Seite Einstellungen, und jede Karte trägt ihren
+  eigenen Befund. Bisher landete jede Meldung unten am Rand — weit weg von der Schaltfläche, die
+  sie ausgelöst hatte, und damit leicht zu übersehen.
+- **Eigenes Fenster für die Sprachmodell-Unterstützung**, wie im Schwesterprojekt: Anbieter,
+  Modell, Schlüssel und die ausdrückliche Einwilligung an einer Stelle.
+- **Die Seite „Über“** zeigt Logo, Version, Laufzeit, Betriebssystem, die Ablageorte und
+  ausdrücklich, was dieses Werkzeug **nicht** tut.
+
+### Geändert
+
+- Die Mitarbeiterkennung ist keine Eingabe mehr, sondern eine Anzeige mit aufgelöstem Namen.
+  Sie kommt aus der Anmeldung; sie von Hand zu ändern konnte nur schaden.
+
 ## 0.1.0 — erste Fassung
 
 ### Neu

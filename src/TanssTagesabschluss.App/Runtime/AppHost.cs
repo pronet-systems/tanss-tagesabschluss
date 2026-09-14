@@ -77,6 +77,16 @@ public sealed class AppHost : IRuntimeContext, IDisposable
     /// <inheritdoc />
     public RuntimeComposition? Composition => _composition;
 
+    /// <summary>
+    /// Die geladene Konfiguration; <see langword="null"/>, solange nichts eingerichtet ist.
+    /// </summary>
+    /// <remarks>
+    /// Eine Abkürzung auf <c>Composition?.Config</c> und kein zweiter Speicher: Wer die
+    /// Einstellungen lesen will, soll nicht erst durch den Zusammenbau greifen müssen — und
+    /// ein eigenes Feld liefe nach einem erneuten Laden auseinander.
+    /// </remarks>
+    public AppConfig? Config => _composition?.Config;
+
     /// <inheritdoc />
     public AppStatus Status { get; private set; }
 

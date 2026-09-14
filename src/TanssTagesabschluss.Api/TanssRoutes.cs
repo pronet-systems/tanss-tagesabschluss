@@ -206,10 +206,33 @@ public static class TanssRoutes
     /// <para>Der einzige Weg dieser Schnittstelle, der den Begriff „eigene Firma“ überhaupt
     /// kennt. In TANSS steht sie als Konfigurationswert <c>system.eigeneFirma.ID</c> in der
     /// Datenbank und wird von <b>keiner</b> beschriebenen Route unmittelbar herausgegeben.</para>
-    /// <para><b>Ungemessen:</b> Ob <c>meta.linkedEntities.companies</c> dieser Antwort die
-    /// eigene Firma nennt, ist die Annahme, auf der die selbsttätige Erkennung ruht. Misslingt
-    /// sie, fragt das Werkzeug den Benutzer — siehe <c>ICompanyRepository.FindOwnAsync</c>.</para>
+    /// <para><b>Nur noch der Rückfall.</b> Den Vortritt hat <see cref="OwnState"/>: dort steht
+    /// die eigene Firma als Zahl, statt aus einem Namensverzeichnis erschlossen zu werden.
+    /// Dieser Weg bleibt für Instanzen stehen, die <see cref="OwnState"/> nicht kennen.</para>
+    /// <para><b>Nachgemessen am 14.09.2026</b> gegen 10.10.0: HTTP 403, obwohl dasselbe Token
+    /// auf <see cref="OwnState"/> HTTP 200 bekommt. Das ERP-Präfix hängt an eigenen Rechten —
+    /// ein Rückfall, auf den man sich nicht verlassen kann, und genau deshalb nicht der
+    /// erste Weg.</para>
     /// </remarks>
+    /// <summary>
+    /// Der eigene Zustand: angemeldeter Benutzer, eigene Firma, Rechte, Module, API-Stand.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Der unmittelbare Weg zur eigenen Firma.</b> Die Antwort trägt
+    /// <c>content.ownCompanyId</c> — jenen Konfigurationswert <c>system.eigeneFirma.ID</c>, den
+    /// sonst keine Route herausgibt — und dazu unter <c>content.defaultCompany</c> die ganze
+    /// Firma samt <c>postcode</c>. Damit steht das Bundesland aus <b>einem</b> Aufruf fest,
+    /// ohne Umweg über eine Namenssuche.</para>
+    /// <para><b>Nachgemessen am 14.09.2026</b> gegen 10.10.0: mit <c>?loggedInUserId=…</c>
+    /// HTTP 200, ohne den Parameter HTTP 403. Die Antwort nennt neben der Firma auch
+    /// <c>content.loggedInUser.id</c> — die Mitarbeiterkennung ist damit aus dem Token allein
+    /// herzuleiten und muss niemandem abverlangt werden.</para>
+    /// <para>In <c>api-doc-10.10.0.yaml</c> ist diese Route <b>nicht</b> beschrieben; belegt ist
+    /// sie durch <c>TnsEmployeeController</c> (<c>@GetMapping("/ownState")</c> auf
+    /// <c>@RequestMapping("/api/v1/employees")</c>) und durch die Messung oben.</para>
+    /// </remarks>
+    public const string OwnState = V1Prefix + "/employees/ownState";
+
     public const string OwnCompanyEmployees = ErpPrefix + "/companies/employees";
 
     /// <summary>Die Techniker der Instanz. Liegt auf <c>tanss.x</c>.</summary>

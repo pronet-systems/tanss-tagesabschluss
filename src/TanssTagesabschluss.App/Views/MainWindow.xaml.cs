@@ -134,6 +134,27 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
     private bool _isShuttingDown;
 
+    /// <summary>
+    /// Öffnet die Einstellungen zur Sprachmodell-Unterstützung.
+    /// </summary>
+    /// <remarks>
+    /// <b>Ein eigenes Fenster und keine weitere Karte auf der Seite.</b> Hier verlässt als
+    /// Einziges Text das Haus; das verlangt Einwilligung, Schlüssel, Modellwahl und die
+    /// Anweisungen an das Modell — zusammen mehr, als eine Karte neben den Erinnerungszeiten
+    /// tragen kann, ohne dass beides untergeht.
+    /// </remarks>
+    /// <param name="sender">Der Auslöser.</param>
+    /// <param name="e">Das Ereignis.</param>
+    public void OpenAiSettings(object? sender, EventArgs e)
+    {
+        AiSettingsWindow window = new(_host) { Owner = this };
+        window.ShowDialog();
+
+        // Die Karte auf der Einstellungsseite zeigt Anbieter und Modell - nach dem Schliessen
+        // stimmt das sonst nicht mehr.
+        Settings.RefreshAi();
+    }
+
     /// <summary>Führt zur Seite „Über“, wo sich die neue Fassung holen lässt.</summary>
     private void OnUpdateHintClick(object sender, RoutedEventArgs e) =>
         Navigation.Navigate(typeof(AboutPage));

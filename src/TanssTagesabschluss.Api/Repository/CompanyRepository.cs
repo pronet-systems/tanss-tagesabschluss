@@ -342,20 +342,135 @@ public sealed class CompanyRepository : ICompanyRepository
 
     /// <inheritdoc />
     /// <remarks>
-    /// <para><b>Zwei Schritte, weil ein einzelner nicht genügt.</b> Das Namensverzeichnis der
-    /// Mitarbeiterabfrage nennt Kennung <i>und</i> Namen der eigenen Firma, aber keine
-    /// Anschrift — und die Postleitzahl ist genau das, worauf es hier ankommt. Deshalb folgt
-    /// auf die Kennung eine gewöhnliche Firmensuche über den Namen, aus der die Firma mit
-    /// passender Kennung herausgegriffen wird.</para>
+    /// <para><b>Ein Aufruf, nicht zwei.</b> <c>GET /api/v1/employees/ownState</c> gibt die eigene
+    /// Firma als Zahl heraus — <c>ownCompanyId</c> ist der Konfigurationswert
+    /// <c>system.eigeneFirma.ID</c> selbst — und dazu unter <c>defaultCompany</c> die ganze Firma
+    /// samt Postleitzahl. Damit steht das Bundesland fest, ohne dass ein Name durch eine
+    /// Firmensuche geschickt werden müsste.</para>
+    ///
+    /// <para><b>Welcher der beiden Werte zählt, wenn sie auseinanderlaufen.</b>
+    /// <c>ownCompanyId</c> gewinnt. Sie <i>ist</i> die Einstellung; <c>defaultCompany</c> ist die
+    /// Firma, die dem angemeldeten Benutzer zugeordnet ist, und bei einem Techniker einer
+    /// Tochtergesellschaft sind das zwei verschiedene Firmen. Stimmen sie nicht überein, wird die
+    /// Anschrift <b>nicht</b> übernommen — lieber ohne Postleitzahl als mit der falschen, denn
+    /// eine falsche Postleitzahl ergibt ein falsches Bundesland, falsche Feiertage und am Ende
+    /// Mahnungen an Tagen, an denen niemand gearbeitet hat.</para>
+    ///
+    /// <para><b>Ist <c>ownCompanyId</c> nicht gesetzt, wird nicht geraten.</b> Dann hat die
+    /// Instanz keine eigene Firma hinterlegt, und <c>defaultCompany</c> an ihre Stelle zu setzen
+    /// hieße, eine Zuordnung des Benutzers für eine Einstellung des Systems auszugeben. Sie wird
+    /// in der Meldung als Vorschlag genannt und ist in den Einstellungen zu bestätigen.</para>
+    ///
+    /// <para><b>Der Rückfall über <c>/api/erp/v1/companies/employees</c> bleibt stehen</b>, für
+    /// Instanzen, die <c>ownState</c> nicht kennen. Auf der Instanz vom 14.09.2026 antwortet er
+    /// mit 403, während <c>ownState</c> mit demselben Token 200 liefert — deshalb ist er der
+    /// zweite und nicht der erste Weg. Siehe <see cref="FindOwnViaEmployeeListAsync"/>.</para>
+    /// </remarks>
+    public async Task<OwnCompanyResult> FindOwnAsync(CancellationToken ct = default)
+    {
+        OwnState? state;
+        string stateProblem;
+
+        try
+        {
+            state = await _client.GetAsync<OwnState>(TanssRoutes.OwnState, ct: ct)
+                .ConfigureAwait(false);
+            stateProblem = string.Empty;
+        }
+        catch (TanssException exception)
+        {
+            // Kein Abbruch: Eine Instanz, die diese Route nicht kennt, antwortet mit 404, und
+            // der zweite Weg kann trotzdem tragen. Der Grund wird aber mitgeschleppt - scheitert
+            // auch der zweite, sollen beide Gruende in der Meldung stehen und nicht nur der
+            // letzte. Sonst sucht jemand am ERP-Recht, waehrend die Ursache woanders liegt.
+            state = null;
+            stateProblem = Redaction.Scrub(exception.Message);
+        }
+
+        if (state is not null && FromOwnState(state) is { } decided)
+        {
+            return decided;
+        }
+
+        OwnCompanyResult fallback = await FindOwnViaEmployeeListAsync(ct).ConfigureAwait(false);
+
+        return fallback.Outcome != OwnCompanyOutcome.Undetermined || stateProblem.Length == 0
+            ? fallback
+            : fallback with
+            {
+                Message = fallback.Message + " Auch der unmittelbare Weg über "
+                    + TanssRoutes.OwnState + " hat nicht getragen: " + stateProblem,
+            };
+    }
+
+    /// <summary>
+    /// Wertet den eigenen Zustand aus. <see langword="null"/> heißt: Hier ist nichts zu holen,
+    /// der Rückfall ist dran.
+    /// </summary>
+    private static OwnCompanyResult? FromOwnState(OwnState state)
+    {
+        Company? assigned = state.DefaultCompany;
+
+        if (state.OwnCompanyId <= 0)
+        {
+            // Nicht gesetzt. Die zugeordnete Firma waere ein naheliegender, aber eben doch ein
+            // geratener Wert - sie wird genannt, nicht genommen.
+            return assigned is { Id: > 0 }
+                ? new OwnCompanyResult(null, OwnCompanyOutcome.NotNamed,
+                    "TANSS führt unter „eigene Firma“ keine Kennung. Dem angemeldeten Benutzer "
+                    + $"ist {assigned.Name} ({assigned.Distinguisher}) zugeordnet — das ist aber "
+                    + "die Zuordnung des Benutzers und nicht die Einstellung des Systems. Bitte "
+                    + "in den Einstellungen bestätigen oder eine andere Firma wählen; an ihrer "
+                    + "Postleitzahl hängen die Feiertage.")
+                : null;
+        }
+
+        if (assigned is not null && assigned.Id == state.OwnCompanyId)
+        {
+            return string.IsNullOrWhiteSpace(assigned.PostCode)
+                ? new OwnCompanyResult(assigned, OwnCompanyOutcome.FoundWithoutAddress,
+                    $"Eigene Firma: {assigned.Name} ({assigned.Distinguisher}). TANSS führt zu "
+                    + "ihr keine Postleitzahl, deshalb ist das Bundesland in den Einstellungen "
+                    + "von Hand zu setzen.")
+                : new OwnCompanyResult(assigned, OwnCompanyOutcome.Found,
+                    $"Eigene Firma: {assigned.Name} ({assigned.Distinguisher}), "
+                    + $"{assigned.PostCode} {assigned.City}".TrimEnd());
+        }
+
+        // Die Kennung steht, die Anschrift nicht. Mehr ist von hier aus nicht zu holen: Eine
+        // Route "Firma zu dieser Kennung" gibt es in 10.10.0 nicht, und ohne Namen traegt auch
+        // keine Firmensuche.
+        string mismatch = assigned is { Id: > 0 }
+            ? $" TANSS nennt daneben {assigned.Name} als zugeordnete Firma; das ist eine andere "
+              + $"(Kennung {assigned.Id.ToString(CultureInfo.CurrentCulture)}) und wird deshalb "
+              + "nicht übernommen."
+            : string.Empty;
+
+        return new OwnCompanyResult(
+            new Company { Id = state.OwnCompanyId },
+            OwnCompanyOutcome.FoundWithoutAddress,
+            $"Eigene Firma: Kennung {state.OwnCompanyId.ToString(CultureInfo.CurrentCulture)}. "
+            + "TANSS hat dazu keine Anschrift mitgeliefert, deshalb ist das Bundesland in den "
+            + "Einstellungen von Hand zu setzen." + mismatch);
+    }
+
+    /// <summary>
+    /// Der Rückfall: die eigene Firma aus dem Namensverzeichnis der Mitarbeiterabfrage.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Zwei Schritte, weil ein einzelner nicht genügt.</b> Das Namensverzeichnis nennt
+    /// Kennung <i>und</i> Namen der eigenen Firma, aber keine Anschrift — und die Postleitzahl
+    /// ist genau das, worauf es hier ankommt. Deshalb folgt auf die Kennung eine gewöhnliche
+    /// Firmensuche über den Namen, aus der die Firma mit passender Kennung herausgegriffen
+    /// wird.</para>
     /// <para><b>Warum über den Namen und nicht über die Kennung gesucht wird:</b> Eine Route
     /// <c>GET /api/v1/companies/{id}</c> gibt es in 10.10.0 nicht. Die Suche ist der einzige
     /// beschriebene Weg zu den Stammdaten einer Firma.</para>
     /// <para><b>Genau eine Firma muss es sein.</b> Nennt das Verzeichnis mehrere, ist keine
-    /// davon belegbar die eigene — dann wird ausdrücklich nichts zurückgegeben, statt die
-    /// erste zu nehmen. Eine falsch geratene Firma ergibt ein falsches Bundesland, falsche
-    /// Feiertage und am Ende Mahnungen an Tagen, an denen niemand gearbeitet hat.</para>
+    /// davon belegbar die eigene — dann wird ausdrücklich nichts zurückgegeben, statt die erste
+    /// zu nehmen.</para>
     /// </remarks>
-    public async Task<OwnCompanyResult> FindOwnAsync(CancellationToken ct = default)
+    private async Task<OwnCompanyResult> FindOwnViaEmployeeListAsync(CancellationToken ct)
     {
         if (_client is not ITanssMetaRead metaRead)
         {
@@ -378,7 +493,8 @@ public sealed class CompanyRepository : ICompanyRepository
             return new OwnCompanyResult(null, OwnCompanyOutcome.Undetermined,
                 "Die eigene Firma liess sich nicht abfragen. Solange sie unbekannt ist, steht "
                 + "auch das Bundesland nicht fest und die Feiertage bleiben unberücksichtigt. "
-                + "Sie lässt sich in den Einstellungen von Hand wählen. " + Redaction.Scrub(ex.Message));
+                + "Sie lässt sich in den Einstellungen von Hand wählen. "
+                + Redaction.Scrub(ex.Message));
         }
 
         IReadOnlyDictionary<string, string> companies =

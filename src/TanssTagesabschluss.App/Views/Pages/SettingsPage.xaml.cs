@@ -1,6 +1,7 @@
 using System.Runtime.Versioning;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using TanssTagesabschluss.App.ViewModels;
 
 namespace TanssTagesabschluss.App.Views.Pages;
@@ -25,9 +26,32 @@ public partial class SettingsPage : Page
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
-        if (DataContext is null && Window.GetWindow(this) is MainWindow window)
+        if (DataContext is not null || Window.GetWindow(this) is not MainWindow window)
         {
-            DataContext = window.Settings;
+            return;
+        }
+
+        DataContext = window.Settings;
+
+        // Nur einmal anmelden, auch wenn die Seite mehrfach aufgeschlagen wird: Der
+        // Navigationsbereich baut sie bei jedem Wechsel neu, das Ansichtsmodell lebt weiter.
+        window.Settings.AiSettingsRequested -= window.OpenAiSettings;
+        window.Settings.AiSettingsRequested += window.OpenAiSettings;
+    }
+
+    /// <summary>
+    /// Die Eingabetaste im Kennwortfeld meldet an.
+    /// </summary>
+    /// <remarks>
+    /// Wer ein Kennwort tippt, drückt danach die Eingabetaste — das ist eingeübt, und ohne
+    /// diese Zeile geschieht dann nichts.
+    /// </remarks>
+    private void OnPasswordKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+        {
+            e.Handled = true;
+            OnSignInClick(sender, new RoutedEventArgs());
         }
     }
 

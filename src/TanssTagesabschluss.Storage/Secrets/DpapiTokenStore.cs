@@ -155,7 +155,8 @@ public sealed class DpapiTokenStore : ITokenStore
                   + "Token mindestens einmal erneuert wurde."
                 : $"Es ist noch kein TANSS-Token hinterlegt (erwartet unter {path}). "
                   + "Das Werkzeug ist auf diesem Rechner noch nicht eingerichtet. "
-                  + "Bitte einmalig ausführen: tanss-logwatch setup");
+                  + "Bitte unter Einstellungen anmelden — die Schaltfläche heißt "
+                  + "„Anmelden und Token prägen“.");
         }
 
         byte[] cipher = File.ReadAllBytes(path);
@@ -164,7 +165,7 @@ public sealed class DpapiTokenStore : ITokenStore
             throw new TokenStoreException(
                 $"{path} ist leer. Das Token ist verloren. "
                 + (isBackup ? string.Empty : $"Eine Sicherung läge unter {Path + BackupSuffix}. ")
-                + "Andernfalls neu einrichten mit: tanss-logwatch setup");
+                + "Andernfalls unter Einstellungen neu anmelden.");
         }
 
         byte[] plain;
@@ -178,7 +179,7 @@ public sealed class DpapiTokenStore : ITokenStore
                 $"{path} lässt sich nicht entschlüsseln. DPAPI bindet das Token an das "
                 + "Windows-Anmeldekonto: Die Datei stammt von einem anderen Benutzer oder "
                 + "aus einem anderen Profil, oder sie wurde beschädigt. Ein erneuter Versuch "
-                + "ändert daran nichts. Bitte neu einrichten mit: tanss-logwatch setup",
+                + "ändert daran nichts. Bitte unter Einstellungen neu anmelden.",
                 exception);
         }
 
@@ -187,7 +188,7 @@ public sealed class DpapiTokenStore : ITokenStore
             string token = Encoding.UTF8.GetString(plain).Trim();
             return token.Length == 0
                 ? throw new TokenStoreException(
-                    $"{path} enthält ein leeres Token. Bitte neu einrichten mit: tanss-logwatch setup")
+                    $"{path} enthält ein leeres Token. Bitte unter Einstellungen neu anmelden.")
                 : token;
         }
         finally

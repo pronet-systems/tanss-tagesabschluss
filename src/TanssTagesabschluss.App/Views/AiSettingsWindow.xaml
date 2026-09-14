@@ -1,0 +1,364 @@
+<ui:FluentWindow x:Class="TanssTagesabschluss.App.Views.AiSettingsWindow"
+                xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                xmlns:design="clr-namespace:TanssTagesabschluss.App.Design"
+                Title="Sprachmodell-Unterstützung"
+                Width="720" Height="760"
+                MinWidth="640" MinHeight="560"
+                WindowStartupLocation="CenterOwner"
+                WindowBackdropType="Mica"
+                ExtendsContentIntoTitleBar="True"
+                WindowCornerPreference="Round">
+
+    <Window.Resources>
+        <!--
+            Der Rahmen um ein beanstandetes Feld. Aus einer Rueckmeldung eines Technikers: Der
+            Hinweis am Fuss des Fensters wurde uebersehen, weil dort auch "Die Modellliste wird
+            geholt" steht. Wer auf Speichern drueckt und nichts passiert, sucht den Grund an dem
+            Feld, das er gerade bearbeitet hat - nicht unten.
+
+            Rahmenstaerke, Innenabstand und Aussenabstand stehen IMMER; nur die Farbe wechselt.
+            Sonst spraenge die Anordnung in dem Augenblick, in dem die Beanstandung erscheint,
+            und das Feld waere unter dem Finger weggerutscht. Der negative Aussenabstand hebt
+            den Innenabstand wieder auf, damit der Rahmen nichts einrueckt.
+        -->
+        <Style x:Key="Beanstandet" TargetType="Border">
+            <Setter Property="BorderThickness" Value="2" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="CornerRadius" Value="{StaticResource CardRadius}" />
+            <Setter Property="Padding" Value="8" />
+            <Setter Property="Margin" Value="-8" />
+        </Style>
+    </Window.Resources>
+
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0" Title="Rechtschreibung und Ausformulieren">
+            <ui:TitleBar.Icon>
+                <ui:SymbolIcon Symbol="Sparkle24" />
+            </ui:TitleBar.Icon>
+        </ui:TitleBar>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="24,8,24,8">
+            <StackPanel design:Spacing.Size="16">
+
+                <!-- Der Hinweis steht ZUERST, nicht im Kleingedruckten am Ende. -->
+                <ui:InfoBar Severity="Warning" IsOpen="True" IsClosable="False"
+                            Title="Hier verlassen Daten das Haus"
+                            Message="Alles übrige in diesem Werkzeug spricht ausschließlich mit eurer TANSS-Instanz. Diese Funktion nicht: Sie übermittelt den Berichtstext an einen Anbieter in den Vereinigten Staaten." />
+
+                <!-- Anbieter -->
+                <Border Style="{StaticResource CardBorder}">
+                    <StackPanel design:Spacing.Size="12">
+                        <ui:TextBlock Text="Anbieter" FontTypography="BodyStrong" />
+
+                        <!-- Jeder Knopf an seiner EIGENEN Eigenschaft, kein invertierender
+                             Umsetzer. Hingen beide an demselben Wert, schriebe die Gruppenlogik
+                             von WPF beim Abwaehlen durch den Umsetzer in die Quelle zurueck -
+                             und welcher Knopf zuerst gebunden wird, entschiede ueber das
+                             Ergebnis. Die Begruendung steht bei AiSettingsViewModel.IsAnthropic. -->
+                        <StackPanel Orientation="Horizontal" design:Spacing.Size="16">
+                            <RadioButton Content="Anthropic (Claude)" GroupName="Provider"
+                                         AutomationProperties.AutomationId="AnbieterAnthropic"
+                                         IsChecked="{Binding IsAnthropic}" />
+                            <RadioButton Content="OpenAI" GroupName="Provider"
+                                         AutomationProperties.AutomationId="AnbieterOpenAi"
+                                         IsChecked="{Binding IsOpenAi}" />
+                        </StackPanel>
+
+                        <Border>
+                            <Border.Style>
+                                <Style TargetType="Border" BasedOn="{StaticResource Beanstandet}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding KeyMissing}" Value="True">
+                                            <Setter Property="BorderBrush" Value="{DynamicResource StateFailedBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <StackPanel>
+                            <ui:TextBlock Text="API-Schlüssel" FontWeight="SemiBold" />
+                            <ui:TextBlock Text="{Binding KeyHint}" FontSize="11" Margin="0,2,0,4"
+                                          Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                            <ui:PasswordBox x:Name="KeyField" />
+                            <ui:TextBlock Margin="0,4,0,0" FontSize="11" TextWrapping="Wrap"
+                                          Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                          Text="Der Schlüssel wird DPAPI-verschlüsselt im Benutzerprofil abgelegt — nicht in config.json. Er lässt sich auf keinem anderen Rechner und unter keinem anderen Windows-Benutzer entsiegeln." />
+                            <ui:TextBlock Margin="0,6,0,0" FontSize="11" TextWrapping="Wrap"
+                                          FontWeight="SemiBold" HorizontalAlignment="Left"
+                                          Foreground="{DynamicResource StateFailedBrush}"
+                                          Visibility="{Binding KeyMissing, Converter={StaticResource BoolToVis}}"
+                                          Text="Hier fehlt ein Schlüssel — ohne ihn lässt sich die Unterstützung nicht einschalten." />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <!-- Modell -->
+                <Border Style="{StaticResource CardBorder}">
+                    <StackPanel design:Spacing.Size="12">
+                        <ui:TextBlock Text="Modell" FontTypography="BodyStrong" />
+                        <ui:TextBlock FontSize="11" TextWrapping="Wrap"
+                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                      Text="Die Auswahl kommt aus der Modellliste des Anbieters und ist nicht fest eingebaut. Zum Laden genügt der Schlüssel; dabei wird kein Berichtstext übermittelt." />
+
+                        <!-- Knopf fest, Auswahl dehnbar. Vorher stand hier Width=320 in einer
+                             waagerechten Reihe: Die misst mit unbegrenzter Breite und gibt
+                             nichts her, das Feld lief also ueber die Kartenkante hinaus. -->
+                        <Border>
+                            <Border.Style>
+                                <Style TargetType="Border" BasedOn="{StaticResource Beanstandet}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding ModelMissing}" Value="True">
+                                            <Setter Property="BorderBrush" Value="{DynamicResource StateFailedBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" MinWidth="200" MaxWidth="320" />
+                            </Grid.ColumnDefinitions>
+
+                            <ui:Button Grid.Column="0" Margin="0,0,8,0"
+                                       Content="Modelle laden" Icon="{ui:SymbolIcon ArrowSync24}"
+                                       Appearance="Secondary"
+                                       IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"
+                                       Click="OnLoadModels" />
+                            <ComboBox Grid.Column="1" VerticalAlignment="Center"
+                                      ItemsSource="{Binding Models}"
+                                      SelectedItem="{Binding SelectedModel, Mode=TwoWay}" />
+                            </Grid>
+                        </Border>
+
+                        <ui:TextBlock FontSize="11" TextWrapping="Wrap" FontWeight="SemiBold"
+                                      HorizontalAlignment="Left"
+                                      Foreground="{DynamicResource StateFailedBrush}"
+                                      Visibility="{Binding ModelMissing, Converter={StaticResource BoolToVis}}"
+                                      Text="Hier fehlt die Wahl eines Modells. „Modelle laden“ holt die Liste beim Anbieter; dabei wird kein Berichtstext übermittelt." />
+                    </StackPanel>
+                </Border>
+
+                <!-- Datenschutz -->
+                <Border Style="{StaticResource CardBorder}">
+                    <StackPanel design:Spacing.Size="12">
+                        <ui:TextBlock Text="Datenschutz" FontTypography="BodyStrong" />
+
+                        <ui:ToggleSwitch Content="Namen vor dem Senden unkenntlich machen"
+                                         IsChecked="{Binding RedactIdentifiers}" />
+                        <ui:TextBlock FontSize="11" TextWrapping="Wrap"
+                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                      Text="Ersetzt Gegenstelle, Rechnername und Anmeldename durch Platzhalter und stellt sie in der Antwort wieder her. Frei geschriebene Namen im Text erkennt das Werkzeug nicht." />
+
+                        <Border Background="{DynamicResource LayerFillColorDefaultBrush}"
+                                CornerRadius="{StaticResource CardRadius}" Padding="12">
+                            <ui:TextBlock Text="{Binding ConsentText}" TextWrapping="Wrap"
+                                          FontSize="12" HorizontalAlignment="Left" />
+                        </Border>
+
+                        <Border>
+                            <Border.Style>
+                                <Style TargetType="Border" BasedOn="{StaticResource Beanstandet}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding ConsentMissing}" Value="True">
+                                            <Setter Property="BorderBrush" Value="{DynamicResource StateFailedBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <StackPanel design:Spacing.Size="6">
+                                <CheckBox IsChecked="{Binding ConsentAccepted}">
+                                    <TextBlock TextWrapping="Wrap" MaxWidth="560"
+                                               Text="Ich habe die Hinweise gelesen und bestätige, dass die Übermittlung an diesem Arbeitsplatz zulässig ist." />
+                                </CheckBox>
+
+                                <ui:TextBlock FontSize="11" TextWrapping="Wrap"
+                                              FontWeight="SemiBold" HorizontalAlignment="Left"
+                                              Foreground="{DynamicResource StateFailedBrush}"
+                                              Visibility="{Binding ConsentMissing, Converter={StaticResource BoolToVis}}"
+                                              Text="Diese Bestätigung fehlt. Ohne sie bleibt die Unterstützung aus — der Haken ist die Bedingung, nicht eine Formalie." />
+                            </StackPanel>
+                        </Border>
+
+                        <ui:TextBlock Text="{Binding ConsentRecord}" FontSize="11"
+                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                </Border>
+
+
+                <!-- Anweisungen. Eigene Karte und nicht im Datenschutzblock: Was das Modell tun
+                     soll, ist eine fachliche Frage des Hauses; was es dabei erfaehrt, eine
+                     rechtliche. Die beiden gehoeren nicht in dieselbe Karte. -->
+                <Border Style="{StaticResource CardBorder}">
+                    <StackPanel design:Spacing.Size="12">
+                        <ui:TextBlock Text="Anweisungen an das Modell" FontTypography="BodyStrong" />
+                        <ui:TextBlock FontSize="11" TextWrapping="Wrap" HorizontalAlignment="Left"
+                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                      Text="Wie ein Bericht klingen soll, weiß euer Haus und nicht dieses Werkzeug — ob gesiezt wird, ob Fachbegriffe stehen bleiben, wie ausführlich es sein darf. Ein leeres Feld heißt: der eingebaute Text." />
+
+                        <StackPanel>
+                            <Grid Margin="0,0,0,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <ui:TextBlock Grid.Column="0" Text="Rolle"
+                                              FontWeight="SemiBold" VerticalAlignment="Center"
+                                              HorizontalAlignment="Left" />
+                                <ui:Button Grid.Column="1" Content="Zurücksetzen"
+                                           Appearance="Transparent" FontSize="11"
+                                           ToolTip="Stellt den eingebauten Text wieder her"
+                                           Command="{Binding ResetRoleCommand}" />
+                            </Grid>
+
+                            <ui:TextBlock FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4"
+                                          HorizontalAlignment="Left"
+                                          Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                          Text="Steht am Anfang jeder Anfrage und gilt für beide Aufgaben." />
+
+                            <ui:TextBox AcceptsReturn="True" TextWrapping="Wrap"
+                                        MinHeight="72" MaxHeight="180"
+                                        VerticalScrollBarVisibility="Auto"
+                                        Text="{Binding RolePrompt, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+
+                        <StackPanel>
+                            <Grid Margin="0,0,0,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <ui:TextBlock Grid.Column="0" Text="Auftrag „Rechtschreibung prüfen“"
+                                              FontWeight="SemiBold" VerticalAlignment="Center"
+                                              HorizontalAlignment="Left" />
+                                <ui:Button Grid.Column="1" Content="Zurücksetzen"
+                                           Appearance="Transparent" FontSize="11"
+                                           ToolTip="Stellt den eingebauten Text wieder her"
+                                           Command="{Binding ResetProofreadCommand}" />
+                            </Grid>
+
+                            <ui:TextBlock FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4"
+                                          HorizontalAlignment="Left"
+                                          Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                          Text="Was geschehen soll, wenn im Abschlussdialog auf „Rechtschreibung prüfen“ geklickt wird." />
+
+                            <ui:TextBox AcceptsReturn="True" TextWrapping="Wrap"
+                                        MinHeight="72" MaxHeight="180"
+                                        VerticalScrollBarVisibility="Auto"
+                                        Text="{Binding ProofreadPrompt, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+
+                        <StackPanel>
+                            <Grid Margin="0,0,0,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <ui:TextBlock Grid.Column="0" Text="Auftrag „Ausformulieren“"
+                                              FontWeight="SemiBold" VerticalAlignment="Center"
+                                              HorizontalAlignment="Left" />
+                                <ui:Button Grid.Column="1" Content="Zurücksetzen"
+                                           Appearance="Transparent" FontSize="11"
+                                           ToolTip="Stellt den eingebauten Text wieder her"
+                                           Command="{Binding ResetImproveCommand}" />
+                            </Grid>
+
+                            <ui:TextBlock FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4"
+                                          HorizontalAlignment="Left"
+                                          Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                          Text="Was geschehen soll, wenn im Abschlussdialog auf „Ausformulieren“ geklickt wird." />
+
+                            <ui:TextBox AcceptsReturn="True" TextWrapping="Wrap"
+                                        MinHeight="72" MaxHeight="180"
+                                        VerticalScrollBarVisibility="Auto"
+                                        Text="{Binding ImprovePrompt, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+
+                        <Border Background="{DynamicResource LayerFillColorDefaultBrush}"
+                                CornerRadius="{StaticResource CardRadius}" Padding="12">
+                            <StackPanel>
+                                <ui:TextBlock Text="Immer angehängt, nicht bearbeitbar"
+                                              FontWeight="SemiBold" FontSize="12"
+                                              HorizontalAlignment="Left" />
+                                <ui:TextBlock Text="{Binding FixedRules}" TextWrapping="Wrap"
+                                              FontSize="12" Margin="0,6,0,0"
+                                              HorizontalAlignment="Left" />
+                                <ui:TextBlock FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0"
+                                              HorizontalAlignment="Left"
+                                              Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                              Text="Die ersten beiden Regeln sind die Zusage, auf die hin eingewilligt wurde: Ein Bericht ist ein Nachweis gegenüber dem Kunden, und ein Nachweis, in dem etwas steht, was nicht geschehen ist, wäre schlimmer als gar keiner. Die letzte ist Technik — ohne sie landet eine Vorrede des Modells mitten im Bericht." />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <!-- Einschalten -->
+                <Border Style="{StaticResource CardBorder}">
+                    <StackPanel design:Spacing.Size="8">
+                        <ui:ToggleSwitch Content="Unterstützung im Abschlussdialog anbieten"
+                                         IsChecked="{Binding Enabled}" />
+                        <ui:TextBlock FontSize="11" TextWrapping="Wrap"
+                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                      Text="Auch dann wird nichts von selbst übermittelt: Der Text geht erst hinaus, wenn im Abschlussdialog auf „Rechtschreibung prüfen“ oder „Ausformulieren“ geklickt wird." />
+                    </StackPanel>
+                </Border>
+
+                <!-- Zwei Leisten statt einer mit wechselnder Faerbung: Eine Leiste, die ihre
+                     Schwere ueber einen Ausloeser umschaltet, behaelt beim Umschalten die alte
+                     Ueberschrift, und dann steht "Hinweis" ueber einer Beanstandung. -->
+                <ui:InfoBar Severity="Informational" IsClosable="False"
+                            IsOpen="{Binding HasHint}"
+                            Title="Hinweis" Message="{Binding Message}" />
+
+                <ui:InfoBar Severity="Error" IsClosable="False"
+                            IsOpen="{Binding IsProblem}"
+                            Title="Das geht so nicht" Message="{Binding Message}" />
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="2"
+                Background="{DynamicResource LayerFillColorDefaultBrush}"
+                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                BorderThickness="0,1,0,0" Padding="24,12">
+            <!-- Zwei Spalten: Links und rechts lagen im selben Gitterfeld, nur durch
+                 HorizontalAlignment getrennt. Wird die Fussleiste schmal, schiebt sich die
+                 rechte Gruppe ueber die linke und verdeckt sie - sie steht in der Kinderliste
+                 hinten und liegt damit obenauf. -->
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <ui:Button Grid.Column="0" HorizontalAlignment="Left" Margin="0,0,12,0"
+                           Content="Einwilligung zurücknehmen"
+                           Appearance="Transparent"
+                           ToolTip="Löscht auch den hinterlegten Schlüssel."
+                           Visibility="{Binding HasRecordedConsent, Converter={StaticResource BoolToVis}}"
+                           Command="{Binding RevokeCommand}" />
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right"
+                            design:Spacing.Size="8">
+                    <ui:Button Content="Abbrechen" Appearance="Secondary"
+                               ToolTip="Schliesst das Fenster, ohne etwas zu speichern. Bereits zurückgenommene Einwilligungen bleiben zurückgenommen — die wirken sofort."
+                               Click="OnClose" />
+                    <ui:Button Content="Speichern" Appearance="Primary"
+                               Icon="{ui:SymbolIcon Save24}"
+                               ToolTip="Legt die Einstellungen ab und schliesst das Fenster. Misslingt das Speichern, bleibt es offen und nennt den Grund."
+                               IsEnabled="{Binding CanSave}" Click="OnSave" />
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</ui:FluentWindow>
